@@ -1,12 +1,13 @@
 # 전국 초중고 급식 정보 조회 앱
 
-전국 초중고 급식 정보 조회 앱.
+전국 초중고 급식 정보 조회 웹 앱과 NEIS OpenAPI 기반 MCP 서버 프로젝트.
 
 ```text
 /
 ├── README.md    프로젝트 실행·테스트·배포 문서
 ├── AGENTS.md    AI 코딩 에이전트 작업 지침
 ├── PRD.md       제품 요구사항
+├── TRD.md       기술 요구사항
 ├── .devcontainer/ GitHub Codespaces 개발 환경
 ├── azure.yaml   azd 서비스 매핑
 ├── compose.yaml Docker Compose 오케스트레이션
@@ -15,6 +16,7 @@
 └── src/
     ├── api/         FastAPI 백엔드 (Python 3.12+ / uv)
     ├── web/         React + Vite + TypeScript 프런트엔드 (nginx 운영 서빙)
+    ├── mcp/         OpenAPI 기반 MCP 서버 (Python 3.12+ / uv, 구현 예정)
     ├── e2e/         Playwright 엔드투엔드 테스트
     └── openapi.json NEIS Open API 스펙
 ```
@@ -23,23 +25,27 @@
 `http://localhost:8000` 으로 프록시되며, 운영 빌드에서는 프런트엔드와 백엔드가
 같은 오리진 아래 `/api`에서 접근 가능하다고 가정합니다.
 
-각 앱의 자세한 내용은 개별 `README.md`를 참고하세요. 이 문서는 모든 것을
-실행하고 테스트하기 위한 **단일 시작점**입니다.
+MCP 서버는 `src/openapi.json`에서 `getSchoolInfo`와
+`getMealServiceDietInfo` 도구 스키마를 구성하고, `/mcp`에서 Streamable HTTP
+전송을 제공하도록 설계되어 있습니다. 제품 범위는 [PRD](./PRD.md), 시스템 구조와
+기술 결정은 [TRD](./TRD.md), 각 앱의 사용법은 개별 `README.md`를 참고하세요.
+이 문서는 현재 구현된 앱을 실행하고 테스트하기 위한 **단일 시작점**입니다.
 
 ## 1. 사전 준비물
 
 | 도구 | 버전 | 사용 위치 |
 | --- | --- | --- |
-| Python | 3.12+ | `src/api` (네이티브 개발) |
-| [`uv`](https://docs.astral.sh/uv/) | latest | `src/api` (네이티브 개발) |
+| Python | 3.12+ | `src/api`, `src/mcp` (네이티브 개발) |
+| [`uv`](https://docs.astral.sh/uv/) | latest | `src/api`, `src/mcp` (네이티브 개발) |
 | Node.js | 22+ (24 LTS 권장) | `src/web`, `src/e2e` (네이티브 개발) |
 | npm | 10+ | `src/web`, `src/e2e` |
 | Docker | Compose 플러그인 포함 24+ | 컨테이너/Compose 흐름 (선택 사항) |
-| NEIS API 키 | — | `src/api` 런타임 (실데이터 호출용) |
+| NEIS API 키 | — | `src/api`, `src/mcp` 런타임 (실데이터 호출용) |
 
 네이티브 개발 시 NEIS 키는 저장소 루트의 `.env`에 `NEIS_API_KEY=...`
 형태로 넣습니다 (api는 pydantic-settings를 통해 자동 로드하고, Docker Compose
-및 azd도 동일한 변수를 읽습니다). 테스트 스위트는 키가 **필요 없습니다** —
+및 azd도 동일한 변수를 읽습니다). MCP 서버도 같은 환경 변수만 사용하며 도구
+인자로 키를 노출하지 않습니다. 테스트 스위트는 키가 **필요 없습니다** —
 적절한 경계에서 NEIS / `/api/*`를 모킹합니다.
 
 ### GitHub Codespaces
@@ -90,6 +96,13 @@ cd src/web
 npm run build
 npm run preview          # 빌드된 번들을 http://localhost:4173 에서 서빙
 ```
+
+#### MCP 서버 (구현 예정)
+
+MCP 서버는 `src/mcp`에 추가되며 `/mcp`에서 Streamable HTTP로 동작합니다.
+구현 후 `src/mcp/README.md`에 실행 명령과 MCP 클라이언트 연결 예시를 제공합니다.
+도구 입력 스키마는 `src/openapi.json`에서 로드하며 API 키는 서버 환경 변수로만
+주입합니다.
 
 ### 2.2 Docker Compose (운영 스타일, 두 앱을 함께)
 
@@ -270,6 +283,7 @@ school-lunch/
 ├── AGENTS.md            AI 코딩 에이전트 작업 지침
 ├── README.md            현재 문서
 ├── PRD.md               제품 요구사항
+├── TRD.md               기술 요구사항
 ├── CONTRIBUTING.md      기여 가이드
 ├── SECURITY.md          취약점 신고 정책
 ├── azure.yaml           azd 서비스 매핑 (api + web → containerapp)
@@ -280,7 +294,7 @@ school-lunch/
 │   ├── main.parameters.json
 │   └── resources.bicep
 └── src/
-    ├── openapi.json     백엔드 구현 기준 NEIS Open API 스펙
+    ├── openapi.json     백엔드·MCP 도구의 단일 NEIS Open API 명세
     ├── api/
     │   ├── app/         FastAPI 앱과 `/api/*` 라우터
     │   ├── tests/       pytest 단위·통합 테스트
@@ -293,6 +307,7 @@ school-lunch/
     │   ├── nginx/       운영 nginx 설정
     │   ├── Dockerfile
     │   └── package.json
+    ├── mcp/             OpenAPI 기반 Streamable HTTP MCP 서버 (구현 예정)
     └── e2e/
         ├── tests/       Playwright 시나리오
         ├── support/     Page Object Model
@@ -309,7 +324,7 @@ school-lunch/
 - **E2E `webServer` 타임아웃** — Playwright는 `127.0.0.1:4173`을 프로빙합니다.
   설정은 Vite preview를 `127.0.0.1`에 명시적으로 바인딩해 일치시킵니다. 호스트를
   변경하는 경우 양쪽 모두 업데이트해야 합니다.
-- **개발 환경에서 NEIS 키 누락** — `api` 런타임만 필요로 합니다. 테스트는 필요
-  없습니다.
+- **개발 환경에서 NEIS 키 누락** — `api`와 MCP 서버 런타임에 필요합니다. 테스트는
+  필요 없습니다.
 - **Compose: `NEIS_API_KEY is required`** — `.env.example`을 `.env`로 복사한 뒤
   키를 설정하거나, `docker compose up` 전에 쉘에서 export 하세요.

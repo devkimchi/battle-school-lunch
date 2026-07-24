@@ -1,6 +1,6 @@
 # PRD — 급식 정보 조회 웹 앱
 
-> Workshop Week 03 결과물. [NEIS 오픈 API(`src/openapi.json`)](./src/openapi.json)를 활용해 학교 중식(점심) 식단을 조회하는 단순한 웹 애플리케이션의 제품 요구사항 문서.
+> [NEIS 오픈 API(`src/openapi.json`)](./src/openapi.json)를 활용해 학교 중식(점심) 식단을 조회하는 웹 애플리케이션과 MCP 서버의 제품 요구사항 문서. 구현 세부사항은 [TRD](./TRD.md)에서 관리한다.
 
 ---
 
@@ -15,6 +15,8 @@
 
 NEIS API 키(`NEIS_API_KEY`)는 보안을 위해 **백엔드에만 보관**하고, 프론트엔드는 백엔드 프록시를 통해서만 NEIS 데이터에 접근한다.
 
+또한 `src/openapi.json`을 단일 명세 원본으로 사용하는 MCP 서버를 `src/mcp`에 제공하여, MCP 클라이언트가 학교기본정보와 급식식단정보를 도구로 호출할 수 있게 한다.
+
 ---
 
 ## 2. 목적 및 목표 (Goals)
@@ -26,6 +28,7 @@ NEIS API 키(`NEIS_API_KEY`)는 보안을 위해 **백엔드에만 보관**하�
 | G3 | 시작일·종료일을 달력으로 선택해 중식 식단을 조회할 수 있다 (최대 31일). |
 | G4 | 날짜별 중식 정보(메뉴/원산지/영양정보/칼로리/급식인원수)를 카드 형태로 한눈에 본다. |
 | G5 | NEIS API 키를 프론트엔드에 노출하지 않는다. |
+| G6 | MCP 클라이언트에서 `src/openapi.json`에 정의된 NEIS 조회 기능을 도구로 사용할 수 있다. |
 
 ### Non-goals (이번 범위에서 제외)
 
@@ -109,6 +112,16 @@ NEIS API 키(`NEIS_API_KEY`)는 보안을 위해 **백엔드에만 보관**하�
 - **FR-O1** `/api/health` 로 liveness 확인이 가능해야 한다.
 - **FR-O2** NEIS 에러(`INFO-000`/`INFO-200` 외)는 HTTP 502 와 `{ code, message }` 본문으로 매핑된다.
 
+### 5.4 MCP 서버
+
+- **FR-C1** MCP 서버 애플리케이션은 `src/mcp` 디렉터리에 둔다.
+- **FR-C2** `src/openapi.json`을 MCP 도구 정의의 단일 명세 원본으로 사용한다. 명세의 `operationId`, 설명, 입력 파라미터와 필수 여부를 도구 이름·설명·입력 스키마에 반영한다.
+- **FR-C3** 최소한 `getSchoolInfo`와 `getMealServiceDietInfo`를 MCP 도구로 제공한다.
+- **FR-C4** 각 도구는 명세에 정의된 NEIS 기본 서버와 경로를 호출하고 JSON 응답을 반환한다. `Type` 파라미터를 생략하면 JSON 형식을 사용한다.
+- **FR-C5** `NEIS_API_KEY`는 서버 환경 변수로만 주입하며 MCP 도구 인자로 노출하지 않는다.
+- **FR-C6** NEIS 오류는 성공 응답으로 위장하지 않고 오류 코드와 메시지를 포함한 MCP 도구 오류로 전달한다.
+- **FR-C7** MCP 클라이언트가 네트워크를 통해 연결할 수 있도록 `/mcp` 엔드포인트에서 Streamable HTTP 전송 방식을 지원한다.
+
 ---
 
 ## 6. 비기능 요구사항 (Non-Functional Requirements)
@@ -121,206 +134,17 @@ NEIS API 키(`NEIS_API_KEY`)는 보안을 위해 **백엔드에만 보관**하�
 | **국제화** | 한국어 UI 고정. 폰트 스택에 `Apple SD Gothic Neo`, `Noto Sans KR` 포함. |
 | **접근성** | 결과 카드는 `role="button"` + Enter/Space 키 활성화 지원. |
 | **응답시간** | NEIS API 호출 타임아웃 15s (httpx). |
+| **명세 동기화** | MCP 도구 스키마는 `src/openapi.json`에서 로드하며 동일한 API 스키마를 별도로 중복 정의하지 않는다. |
 
 ---
 
-## 7. 기술 스택 (Tech Stack)
+## 7. 기술 요구사항 (Technical Requirements)
 
-### 7.1 Backend (`workshop/week-03/src/api`)
-
-| 구분 | 선정 |
-| --- | --- |
-| 언어 | Python 3.12+ |
-| 패키지/가상환경 | **uv** (`pyproject.toml`, `uv.lock`) |
-| 웹 프레임워크 | **FastAPI** |
-| ASGI 서버 | **Uvicorn** (`--reload`) |
-| HTTP 클라이언트 | **httpx** (async) |
-| 설정 로딩 | **pydantic-settings**, `python-dotenv` |
-| 응답 검증 | **Pydantic v2** |
-
-#### 디렉터리 구조
-
-```
-workshop/week-03/src/api/
-├── pyproject.toml
-├── uv.lock
-├── README.md
-└── app/
-    ├── __init__.py
-    ├── main.py          # FastAPI 인스턴스, CORS, 라우터 등록, lifespan
-    ├── config.py        # NEIS_API_KEY 등 Settings
-    ├── neis_client.py   # NEIS httpx async 래퍼 + RESULT.CODE 처리
-    ├── schemas.py       # Pydantic 응답 모델 (School, Meal)
-    └── routers/
-        ├── health.py    # GET /api/health
-        ├── schools.py   # GET /api/schools?name=
-        └── meals.py     # GET /api/meals?eduOfficeCode&schoolCode&from&to
-```
-
-#### API 엔드포인트 (백엔드)
-
-| Method | Path | Description |
-| ------ | ---- | ----------- |
-| GET | `/api/health` | Liveness probe |
-| GET | `/api/schools?name={partial}` | 학교명 부분 검색 |
-| GET | `/api/meals?eduOfficeCode=&schoolCode=&from=YYYY-MM-DD&to=YYYY-MM-DD` | 중식 식단 조회 |
-
-### 7.2 Frontend (`workshop/week-03/src/web`)
-
-| 구분 | 선정 |
-| --- | --- |
-| 빌드 도구 | **Vite 7** |
-| 프레임워크 | **React 19** + **TypeScript** |
-| 라우팅 | **react-router-dom v7** |
-| 데이터 페칭 | **@tanstack/react-query v5** |
-| 스타일 | **Tailwind CSS v4** (`@tailwindcss/vite`) + `tw-animate-css` |
-| UI 컴포넌트 | **shadcn 스타일** 수기 작성 (Button, Input, Card, Calendar) |
-| 날짜 위젯 | **react-day-picker v10** (Calendar 래퍼) |
-| 날짜 유틸 | **date-fns v4** |
-| 클래스 합성 | `clsx` + `tailwind-merge` (`cn` 헬퍼) |
-| 아이콘 | `lucide-react` (필요 시) |
-
-#### 디렉터리 구조
-
-```
-workshop/week-03/src/web/
-├── package.json
-├── vite.config.ts        # @tailwindcss/vite, alias '@', proxy /api → :8000
-├── tsconfig*.json        # paths: { "@/*": ["./src/*"] }
-├── README.md
-└── src/
-    ├── main.tsx          # QueryClientProvider + BrowserRouter
-    ├── App.tsx           # Routes
-    ├── index.css         # @import "tailwindcss" + 테마 토큰
-    ├── types.ts          # School, Meal
-    ├── lib/
-    │   ├── api.ts        # fetch 래퍼 (searchSchools, getMeals)
-    │   └── utils.ts      # cn()
-    ├── components/ui/    # button, input, card, calendar
-    └── pages/
-        ├── LandingPage.tsx
-        ├── DateRangePage.tsx
-        └── MealsResultPage.tsx
-```
-
-#### 클라이언트 라우트
-
-| Path | Page |
-| ---- | ---- |
-| `/` | LandingPage (학교 검색) |
-| `/school/:schoolCode` | DateRangePage (날짜 범위 선택) |
-| `/school/:schoolCode/meals` | MealsResultPage (날짜별 중식 카드) |
-
-#### Vite Dev 프록시
-
-```ts
-server: {
-  port: 5173,
-  proxy: { '/api': { target: 'http://localhost:8000', changeOrigin: true } }
-}
-```
+기술 스택, 시스템 구성, 디렉터리 구조, API·MCP 인터페이스, 데이터 모델, 설계 결정, 환경 변수와 실행 방법은 [TRD](./TRD.md)에서 관리한다.
 
 ---
 
-## 8. 데이터 모델 (Internal Schemas)
-
-```ts
-// 프론트와 백엔드가 공유하는 응답 형태
-
-interface School {
-  schoolCode: string;        // NEIS SD_SCHUL_CODE
-  eduOfficeCode: string;     // NEIS ATPT_OFCDC_SC_CODE
-  schoolName: string;        // NEIS SCHUL_NM
-  eduOfficeName: string;     // NEIS ATPT_OFCDC_SC_NM
-  lctnScNm: string | null;   // NEIS LCTN_SC_NM
-}
-
-interface Meal {
-  date: string;              // YYYY-MM-DD
-  dishes: string[];          // NEIS DDISH_NM (<br/> split)
-  calorie: string | null;    // NEIS CAL_INFO (예: "1107.8 Kcal")
-  origin: string[];          // NEIS ORPLC_INFO (<br/> split)
-  nutrition: string[];       // NEIS NTR_INFO (<br/> split)
-  servings: number | null;   // NEIS MLSV_FGR
-}
-```
-
----
-
-## 9. 설계 결정 및 트레이드오프 (Decisions & Trade-offs)
-
-### 9.1 백엔드 프록시 패턴
-
-NEIS API 를 프론트에서 직접 호출하지 않고 백엔드 프록시를 둔다.
-
-- **이유**: `NEIS_API_KEY` 노출 방지, 응답 정규화(`<br/>` 분해, INFO/ERROR 매핑), 향후 캐싱/리트라이 추가 용이.
-- **트레이드오프**: 호출 한 번에 두 hop 발생. 단, NEIS 자체 응답이 빠르며 단순 패스스루라서 영향은 미미.
-
-### 9.2 중식 고정 (`MMEAL_SC_CODE=2`)
-
-요구사항이 "중식만"이므로 백엔드에서 코드를 고정한다. 프론트는 식사 종류를 선택할 수 없다.
-
-- **확장 가능성**: 추후 조식/석식 토글 추가 시 백엔드 쿼리 파라미터로 노출하면 됨.
-
-### 9.3 최대 31일 제한
-
-- NEIS 자체 한도(`pSize=1000`)는 매우 넉넉하나, UX 와 응답 페이로드 안정성을 위해 1개월로 제한.
-- 백엔드와 프론트 양쪽에서 검증 (Defense in depth).
-
-### 9.4 shadcn CLI 미사용, 컴포넌트 수기 작성
-
-- 워크샵 환경에서 shadcn CLI 초기화가 인터랙티브 프롬프트로 멈추는 이슈를 회피.
-- 실제로 사용하는 컴포넌트가 4종(Button, Input, Card, Calendar)으로 적어 수기 작성이 더 단순.
-- Tailwind v4 의 `@theme inline` 블록으로 shadcn 스타일 CSS 변수 토큰을 동일하게 유지.
-
-### 9.5 react-router-dom v7 + react-query v5
-
-- 모두 React 19 호환 최신 메이저.
-- 검색·식단 데이터는 react-query 캐시 키(`["schools", query]`, `["meals", ...]`)로 자동 캐싱.
-
-### 9.6 학교 검색 페이지네이션 미지원
-
-- NEIS 의 단일 응답(최대 100건) 만 사용.
-- 결과가 너무 많을 경우 더 구체적인 검색어를 권장. 추후 페이지네이션이 필요하면 백엔드 `?page=` 파라미터 추가.
-
----
-
-## 10. 환경 변수 (Environment)
-
-저장소 루트의 `.env`
-
-```env
-NEIS_API_KEY=발급받은_NEIS_인증키
-```
-
-- 미발급 시 `sample` 키로 동작 가능하나 페이지/건수가 제한되어 검색 결과가 빈약함.
-- `.env` 는 리포지토리 루트 `.gitignore` 의 `*.env` 패턴으로 커밋되지 않는다.
-
----
-
-## 11. 실행 방법 (Run)
-
-두 개의 터미널에서:
-
-```bash
-# 백엔드 (http://localhost:8000, /docs 에 OpenAPI UI)
-cd workshop/week-03/src/api
-uv sync
-uv run uvicorn app.main:app --reload --port 8000
-```
-
-```bash
-# 프론트엔드 (http://localhost:5173)
-cd workshop/week-03/src/web
-npm install
-npm run dev
-```
-
-브라우저에서 <http://localhost:5173> 접속.
-
----
-
-## 12. 검증 (Acceptance Criteria)
+## 8. 검증 (Acceptance Criteria)
 
 - [x] 학교명 부분 검색 시 결과 카드(학교명 + 교육청)가 표시된다.
 - [x] 학교 카드를 클릭하면 날짜 범위 페이지로 이동한다.
@@ -330,10 +154,14 @@ npm run dev
 - [x] `NEIS_API_KEY` 가 프론트엔드 번들에 포함되지 않는다 (백엔드 환경변수만으로 동작).
 - [x] `npm run build` 가 타입 오류 없이 성공한다.
 - [x] 실제 NEIS API 키로 서울고등학교 5월 식단을 정상 조회한다 (수동 검증 완료).
+- [ ] `src/mcp`에서 MCP 서버를 실행하고 `/mcp` 엔드포인트에 Streamable HTTP 방식으로 연결할 수 있다.
+- [ ] MCP 클라이언트에서 `getSchoolInfo`와 `getMealServiceDietInfo` 도구 및 OpenAPI 기반 입력 스키마를 확인할 수 있다.
+- [ ] 두 MCP 도구가 `NEIS_API_KEY`를 도구 인자로 노출하지 않고 NEIS JSON 응답을 반환한다.
+- [ ] 유효하지 않은 OpenAPI 명세와 NEIS 오류가 명시적인 시작 오류 또는 MCP 도구 오류로 전달된다.
 
 ---
 
-## 13. 향후 작업 (Out of Scope / Follow-ups)
+## 9. 향후 작업 (Out of Scope / Follow-ups)
 
 - Workshop Week 03 후속: 컨테이너화(Dockerfile) 및 배포 자동화
 - 조식/석식 토글 추가
@@ -341,46 +169,22 @@ npm run dev
 - 즐겨찾기 학교 (localStorage)
 - 단위/통합/E2E 테스트 추가 (pytest, Vitest, Playwright)
 - 에러/빈 상태에 대한 더 풍부한 UI (Skeleton, Toast 등)
+- MCP 클라이언트 인증·인가 추가
 
 ---
 
-## 14. 작업 진행 기록 (Discussion & Decisions Log)
+## 10. 제품 결정 기록 (Product Decisions Log)
 
-본 PRD 는 다음 사전 논의를 거쳐 작성되었다.
+본 PRD는 다음 제품 논의를 거쳐 작성되었다. 구현 기록과 기술 이슈는 [TRD §9](./TRD.md)에서 관리한다.
 
-### 14.1 사용자와의 사전 합의
+### 10.1 사용자와의 사전 합의
 
 | # | 질문 | 결정 |
 | - | --- | --- |
 | 1 | 중식 결과 카드에 어떤 필드를 표시할까? | **메뉴/원산지/영양정보/칼로리/급식인원수 전부**를 불릿포인트로 표시 |
-| 2 | 프론트엔드 스타일링은? | **shadcn/ui** (실제 구현은 shadcn 스타일 컴포넌트를 수기 작성, §9.4 참고) |
+| 2 | 프론트엔드 스타일링은? | **shadcn/ui** (구현 결정은 [TRD §6.4](./TRD.md) 참고) |
 | 3 | 날짜 범위 최대 허용 기간은? | **1개월 (31일)** |
 | 4 | 백엔드 언어/패키지 매니저? | 사용자 지정: **Python + uv** (FastAPI 채택) |
 | 5 | 프론트엔드 프레임워크? | 사용자 지정: **React + Vite** (TypeScript 추가 채택) |
-| 6 | 디렉터리? | 사용자 지정: 백엔드 `src/api`, 프론트 `src/web` → 이후 `workshop/week-03/src/{api,web}` 로 이동 |
+| 6 | 디렉터리? | 사용자 지정: 백엔드 `src/api`, 프론트 `src/web` |
 | 7 | 식사 종류? | 사용자 지정: **중식만** (`MMEAL_SC_CODE=2` 고정) |
-
-### 14.2 구현 단계 (15개 todo, 모두 완료)
-
-1. `bootstrap-api` — `uv init` + FastAPI/httpx/python-dotenv/pydantic 설치
-2. `api-config` — `.env` 로딩 + Settings 모듈
-3. `api-neis-client` — NEIS httpx 비동기 래퍼
-4. `api-schools-route` — `GET /api/schools`
-5. `api-meals-route` — `GET /api/meals` (중식 고정, 31일 제한)
-6. `api-cors-health` — CORS 미들웨어 + `/api/health` + 에러 매핑
-7. `api-manual-verify` — cURL 로 서울고등학교 식단 조회 검증
-8. `bootstrap-web` — Vite + React + TS 스캐폴딩
-9. `web-tailwind-shadcn` — Tailwind v4 + shadcn 스타일 컴포넌트
-10. `web-routing-query` — react-router-dom, react-query, Vite proxy
-11. `web-landing` — 검색 페이지 (300ms debounce)
-12. `web-date-range` — 1개월 한도 range date picker
-13. `web-meals-result` — 날짜별 중식 카드 (불릿)
-14. `web-manual-verify` — 전체 흐름 수동 검증
-15. `docs` — 루트 `README.md` 업데이트
-
-### 14.3 구현 중 마주친 이슈와 해결
-
-- **npm create vite 인터랙티브 프롬프트** → `yes "" | npm create vite@7 -- web --template react-ts` 로 우회.
-- **shadcn CLI init 행 잠김** → 컴포넌트 수기 작성 (§9.4).
-- **lucide-react 버전 혼동** → 공식 `latest` 가 `1.17.0` 임을 확인하고 그대로 사용.
-- **NEIS 응답 두 가지 형태** (정상 / `RESULT` 만 있는 에러) → `_extract_result()` 가 두 케이스 모두 처리.
