@@ -48,7 +48,7 @@ RUN npm run build \
 # nginx-unprivileged runs as uid 101 (nginx) by default, listens on
 # 8080 (not 80), and writes its temp/log files to /tmp. Perfect for
 # Kubernetes / Container Apps where running as root is forbidden.
-FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS runtime
 
 # Tell the orchestrator what we expose.
 EXPOSE 8080
