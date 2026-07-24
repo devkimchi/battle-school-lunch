@@ -1,6 +1,6 @@
 # PRD — 급식 정보 조회 웹 앱
 
-> Workshop Week 03 결과물. [NEIS 오픈 API(`src/openapi.json`)](./src/openapi.json)를 활용해 학교 중식(점심) 식단을 조회하는 단순한 웹 애플리케이션의 제품 요구사항 문서.
+> Workshop Week 03 결과물. [NEIS 오픈 API(`src/openapi.json`)](./src/openapi.json)를 활용해 학교 중식(점심) 식단을 조회하는 웹 애플리케이션과 MCP 서버의 제품 요구사항 문서.
 
 ---
 
@@ -15,6 +15,8 @@
 
 NEIS API 키(`NEIS_API_KEY`)는 보안을 위해 **백엔드에만 보관**하고, 프론트엔드는 백엔드 프록시를 통해서만 NEIS 데이터에 접근한다.
 
+또한 `src/openapi.json`을 단일 명세 원본으로 사용하는 MCP 서버를 `src/mcp`에 제공하여, MCP 클라이언트가 학교기본정보와 급식식단정보를 도구로 호출할 수 있게 한다.
+
 ---
 
 ## 2. 목적 및 목표 (Goals)
@@ -26,6 +28,7 @@ NEIS API 키(`NEIS_API_KEY`)는 보안을 위해 **백엔드에만 보관**하�
 | G3 | 시작일·종료일을 달력으로 선택해 중식 식단을 조회할 수 있다 (최대 31일). |
 | G4 | 날짜별 중식 정보(메뉴/원산지/영양정보/칼로리/급식인원수)를 카드 형태로 한눈에 본다. |
 | G5 | NEIS API 키를 프론트엔드에 노출하지 않는다. |
+| G6 | MCP 클라이언트에서 `src/openapi.json`에 정의된 NEIS 조회 기능을 도구로 사용할 수 있다. |
 
 ### Non-goals (이번 범위에서 제외)
 
@@ -109,6 +112,16 @@ NEIS API 키(`NEIS_API_KEY`)는 보안을 위해 **백엔드에만 보관**하�
 - **FR-O1** `/api/health` 로 liveness 확인이 가능해야 한다.
 - **FR-O2** NEIS 에러(`INFO-000`/`INFO-200` 외)는 HTTP 502 와 `{ code, message }` 본문으로 매핑된다.
 
+### 5.4 MCP 서버
+
+- **FR-C1** MCP 서버 애플리케이션은 `src/mcp` 디렉터리에 둔다.
+- **FR-C2** `src/openapi.json`을 MCP 도구 정의의 단일 명세 원본으로 사용한다. 명세의 `operationId`, 설명, 입력 파라미터와 필수 여부를 도구 이름·설명·입력 스키마에 반영한다.
+- **FR-C3** 최소한 `getSchoolInfo`와 `getMealServiceDietInfo`를 MCP 도구로 제공한다.
+- **FR-C4** 각 도구는 명세에 정의된 NEIS 기본 서버와 경로를 호출하고 JSON 응답을 반환한다. `Type` 파라미터를 생략하면 JSON 형식을 사용한다.
+- **FR-C5** `NEIS_API_KEY`는 서버 환경 변수로만 주입하며 MCP 도구 인자로 노출하지 않는다.
+- **FR-C6** NEIS 오류는 성공 응답으로 위장하지 않고 오류 코드와 메시지를 포함한 MCP 도구 오류로 전달한다.
+- **FR-C7** 로컬 MCP 클라이언트가 실행할 수 있도록 표준 입출력(`stdio`) 전송 방식을 지원한다.
+
 ---
 
 ## 6. 비기능 요구사항 (Non-Functional Requirements)
@@ -121,6 +134,7 @@ NEIS API 키(`NEIS_API_KEY`)는 보안을 위해 **백엔드에만 보관**하�
 | **국제화** | 한국어 UI 고정. 폰트 스택에 `Apple SD Gothic Neo`, `Noto Sans KR` 포함. |
 | **접근성** | 결과 카드는 `role="button"` + Enter/Space 키 활성화 지원. |
 | **응답시간** | NEIS API 호출 타임아웃 15s (httpx). |
+| **명세 동기화** | MCP 도구 스키마는 `src/openapi.json`에서 로드하며 동일한 API 스키마를 별도로 중복 정의하지 않는다. |
 
 ---
 
@@ -220,6 +234,40 @@ server: {
 }
 ```
 
+### 7.3 MCP Server (`src/mcp`)
+
+| 구분 | 선정 |
+| --- | --- |
+| 언어 | Python 3.12+ |
+| 패키지/가상환경 | **uv** (`pyproject.toml`, `uv.lock`) |
+| MCP 구현 | Python MCP SDK 기반 서버 |
+| HTTP 클라이언트 | **httpx** (async) |
+| 도구 명세 | `src/openapi.json` (OpenAPI 3.0.3) |
+| 전송 방식 | `stdio` |
+
+#### 디렉터리 구조
+
+```text
+src/mcp/
+├── pyproject.toml
+├── uv.lock
+├── README.md
+└── app/
+    ├── __init__.py
+    ├── main.py          # MCP 서버 엔트리포인트와 stdio 실행
+    ├── openapi.py       # OpenAPI 문서 로드 및 MCP 도구 등록
+    └── neis_client.py   # 인증키 주입, NEIS 비동기 HTTP 호출 및 오류 매핑
+```
+
+#### MCP 도구
+
+| Tool | OpenAPI operationId | Description |
+| --- | --- | --- |
+| `getSchoolInfo` | `getSchoolInfo` | 학교명, 학교 코드, 교육청 코드 등으로 학교기본정보 조회 |
+| `getMealServiceDietInfo` | `getMealServiceDietInfo` | 학교와 날짜 조건으로 급식식단정보 조회 |
+
+MCP 서버는 시작할 때 `src/openapi.json`을 읽어 도구 입력 스키마를 구성한다. 명세 파일이 없거나 유효하지 않으면 도구가 일부만 등록된 상태로 실행하지 않고 시작 오류를 반환한다.
+
 ---
 
 ## 8. 데이터 모델 (Internal Schemas)
@@ -283,6 +331,12 @@ NEIS API 를 프론트에서 직접 호출하지 않고 백엔드 프록시를 �
 - NEIS 의 단일 응답(최대 100건) 만 사용.
 - 결과가 너무 많을 경우 더 구체적인 검색어를 권장. 추후 페이지네이션이 필요하면 백엔드 `?page=` 파라미터 추가.
 
+### 9.7 OpenAPI 기반 MCP 도구
+
+- `src/openapi.json`의 `operationId`를 MCP 도구 이름으로 사용해 API 명세와 도구 인터페이스의 불일치를 방지한다.
+- 인증과 NEIS 오류 처리는 도구별로 중복하지 않고 공통 HTTP 클라이언트에서 수행한다.
+- 초기 범위는 로컬 MCP 클라이언트 연동에 필요한 `stdio` 전송으로 제한한다. 원격 전송 방식은 후속 요구사항으로 분리한다.
+
 ---
 
 ## 10. 환경 변수 (Environment)
@@ -330,6 +384,10 @@ npm run dev
 - [x] `NEIS_API_KEY` 가 프론트엔드 번들에 포함되지 않는다 (백엔드 환경변수만으로 동작).
 - [x] `npm run build` 가 타입 오류 없이 성공한다.
 - [x] 실제 NEIS API 키로 서울고등학교 5월 식단을 정상 조회한다 (수동 검증 완료).
+- [ ] `src/mcp`에서 MCP 서버를 `stdio` 방식으로 실행할 수 있다.
+- [ ] MCP 클라이언트에서 `getSchoolInfo`와 `getMealServiceDietInfo` 도구 및 OpenAPI 기반 입력 스키마를 확인할 수 있다.
+- [ ] 두 MCP 도구가 `NEIS_API_KEY`를 도구 인자로 노출하지 않고 NEIS JSON 응답을 반환한다.
+- [ ] 유효하지 않은 OpenAPI 명세와 NEIS 오류가 명시적인 시작 오류 또는 MCP 도구 오류로 전달된다.
 
 ---
 
@@ -341,6 +399,7 @@ npm run dev
 - 즐겨찾기 학교 (localStorage)
 - 단위/통합/E2E 테스트 추가 (pytest, Vitest, Playwright)
 - 에러/빈 상태에 대한 더 풍부한 UI (Skeleton, Toast 등)
+- MCP 원격 전송(Streamable HTTP) 및 인증 추가
 
 ---
 
