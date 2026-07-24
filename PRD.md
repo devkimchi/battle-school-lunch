@@ -140,7 +140,7 @@ NEIS API 키(`NEIS_API_KEY`)는 보안을 위해 **백엔드에만 보관**하�
 
 ## 7. 기술 스택 (Tech Stack)
 
-### 7.1 Backend (`workshop/week-03/src/api`)
+### 7.1 Backend (`src/api`)
 
 | 구분 | 선정 |
 | --- | --- |
@@ -154,21 +154,28 @@ NEIS API 키(`NEIS_API_KEY`)는 보안을 위해 **백엔드에만 보관**하�
 
 #### 디렉터리 구조
 
-```
-workshop/week-03/src/api/
+```text
+src/api/
+├── .dockerignore
+├── Dockerfile
 ├── pyproject.toml
 ├── uv.lock
 ├── README.md
-└── app/
-    ├── __init__.py
-    ├── main.py          # FastAPI 인스턴스, CORS, 라우터 등록, lifespan
-    ├── config.py        # NEIS_API_KEY 등 Settings
-    ├── neis_client.py   # NEIS httpx async 래퍼 + RESULT.CODE 처리
-    ├── schemas.py       # Pydantic 응답 모델 (School, Meal)
-    └── routers/
-        ├── health.py    # GET /api/health
-        ├── schools.py   # GET /api/schools?name=
-        └── meals.py     # GET /api/meals?eduOfficeCode&schoolCode&from&to
+├── app/
+│   ├── __init__.py
+│   ├── main.py          # FastAPI 인스턴스, CORS, 라우터 등록, lifespan
+│   ├── config.py        # NEIS_API_KEY 등 Settings
+│   ├── neis_client.py   # NEIS httpx async 래퍼 + RESULT.CODE 처리
+│   ├── schemas.py       # Pydantic 응답 모델 (School, Meal)
+│   └── routers/
+│       ├── __init__.py
+│       ├── health.py    # GET /api/health
+│       ├── schools.py   # GET /api/schools?name=
+│       └── meals.py     # GET /api/meals?eduOfficeCode&schoolCode&from&to
+└── tests/
+    ├── conftest.py
+    ├── unit/            # 설정, 스키마, NEIS 클라이언트, 라우터 헬퍼
+    └── integration/     # health, schools, meals API
 ```
 
 #### API 엔드포인트 (백엔드)
@@ -179,7 +186,7 @@ workshop/week-03/src/api/
 | GET | `/api/schools?name={partial}` | 학교명 부분 검색 |
 | GET | `/api/meals?eduOfficeCode=&schoolCode=&from=YYYY-MM-DD&to=YYYY-MM-DD` | 중식 식단 조회 |
 
-### 7.2 Frontend (`workshop/week-03/src/web`)
+### 7.2 Frontend (`src/web`)
 
 | 구분 | 선정 |
 | --- | --- |
@@ -196,25 +203,43 @@ workshop/week-03/src/api/
 
 #### 디렉터리 구조
 
-```
-workshop/week-03/src/web/
+```text
+src/web/
+├── .dockerignore
+├── Dockerfile
+├── eslint.config.js
+├── index.html
 ├── package.json
+├── package-lock.json
 ├── vite.config.ts        # @tailwindcss/vite, alias '@', proxy /api → :8000
+├── vitest.config.ts
 ├── tsconfig*.json        # paths: { "@/*": ["./src/*"] }
 ├── README.md
+├── nginx/
+│   ├── nginx.conf
+│   └── default.conf.template
+├── public/
+│   └── vite.svg
 └── src/
     ├── main.tsx          # QueryClientProvider + BrowserRouter
     ├── App.tsx           # Routes
     ├── index.css         # @import "tailwindcss" + 테마 토큰
     ├── types.ts          # School, Meal
+    ├── vite-env.d.ts
     ├── lib/
     │   ├── api.ts        # fetch 래퍼 (searchSchools, getMeals)
+    │   ├── api.test.ts
     │   └── utils.ts      # cn()
     ├── components/ui/    # button, input, card, calendar
-    └── pages/
-        ├── LandingPage.tsx
-        ├── DateRangePage.tsx
-        └── MealsResultPage.tsx
+    ├── pages/
+    │   ├── LandingPage.tsx
+    │   ├── DateRangePage.tsx
+    │   └── MealsResultPage.tsx
+    └── test/
+        ├── setup.ts
+        ├── test-utils.tsx
+        ├── msw/          # /api/* mock handlers and server
+        └── integration/  # search and meals flows
 ```
 
 #### 클라이언트 라우트
@@ -358,14 +383,14 @@ NEIS_API_KEY=발급받은_NEIS_인증키
 
 ```bash
 # 백엔드 (http://localhost:8000, /docs 에 OpenAPI UI)
-cd workshop/week-03/src/api
+cd src/api
 uv sync
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
 ```bash
 # 프론트엔드 (http://localhost:5173)
-cd workshop/week-03/src/web
+cd src/web
 npm install
 npm run dev
 ```
@@ -416,7 +441,7 @@ npm run dev
 | 3 | 날짜 범위 최대 허용 기간은? | **1개월 (31일)** |
 | 4 | 백엔드 언어/패키지 매니저? | 사용자 지정: **Python + uv** (FastAPI 채택) |
 | 5 | 프론트엔드 프레임워크? | 사용자 지정: **React + Vite** (TypeScript 추가 채택) |
-| 6 | 디렉터리? | 사용자 지정: 백엔드 `src/api`, 프론트 `src/web` → 이후 `workshop/week-03/src/{api,web}` 로 이동 |
+| 6 | 디렉터리? | 사용자 지정: 백엔드 `src/api`, 프론트 `src/web` |
 | 7 | 식사 종류? | 사용자 지정: **중식만** (`MMEAL_SC_CODE=2` 고정) |
 
 ### 14.2 구현 단계 (15개 todo, 모두 완료)
