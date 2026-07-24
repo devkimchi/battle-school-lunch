@@ -120,7 +120,7 @@ NEIS API 키(`NEIS_API_KEY`)는 보안을 위해 **백엔드에만 보관**하�
 - **FR-C4** 각 도구는 명세에 정의된 NEIS 기본 서버와 경로를 호출하고 JSON 응답을 반환한다. `Type` 파라미터를 생략하면 JSON 형식을 사용한다.
 - **FR-C5** `NEIS_API_KEY`는 서버 환경 변수로만 주입하며 MCP 도구 인자로 노출하지 않는다.
 - **FR-C6** NEIS 오류는 성공 응답으로 위장하지 않고 오류 코드와 메시지를 포함한 MCP 도구 오류로 전달한다.
-- **FR-C7** 로컬 MCP 클라이언트가 실행할 수 있도록 표준 입출력(`stdio`) 전송 방식을 지원한다.
+- **FR-C7** MCP 클라이언트가 네트워크를 통해 연결할 수 있도록 `/mcp` 엔드포인트에서 Streamable HTTP 전송 방식을 지원한다.
 
 ---
 
@@ -243,7 +243,7 @@ server: {
 | MCP 구현 | Python MCP SDK 기반 서버 |
 | HTTP 클라이언트 | **httpx** (async) |
 | 도구 명세 | `src/openapi.json` (OpenAPI 3.0.3) |
-| 전송 방식 | `stdio` |
+| 전송 방식 | Streamable HTTP (`/mcp`) |
 
 #### 디렉터리 구조
 
@@ -254,7 +254,7 @@ src/mcp/
 ├── README.md
 └── app/
     ├── __init__.py
-    ├── main.py          # MCP 서버 엔트리포인트와 stdio 실행
+    ├── main.py          # MCP 서버 엔트리포인트와 Streamable HTTP 실행
     ├── openapi.py       # OpenAPI 문서 로드 및 MCP 도구 등록
     └── neis_client.py   # 인증키 주입, NEIS 비동기 HTTP 호출 및 오류 매핑
 ```
@@ -335,7 +335,7 @@ NEIS API 를 프론트에서 직접 호출하지 않고 백엔드 프록시를 �
 
 - `src/openapi.json`의 `operationId`를 MCP 도구 이름으로 사용해 API 명세와 도구 인터페이스의 불일치를 방지한다.
 - 인증과 NEIS 오류 처리는 도구별로 중복하지 않고 공통 HTTP 클라이언트에서 수행한다.
-- 초기 범위는 로컬 MCP 클라이언트 연동에 필요한 `stdio` 전송으로 제한한다. 원격 전송 방식은 후속 요구사항으로 분리한다.
+- MCP 클라이언트가 독립 프로세스와 원격 환경에서도 연결할 수 있도록 `/mcp` 기반 Streamable HTTP 전송을 사용한다.
 
 ---
 
@@ -384,7 +384,7 @@ npm run dev
 - [x] `NEIS_API_KEY` 가 프론트엔드 번들에 포함되지 않는다 (백엔드 환경변수만으로 동작).
 - [x] `npm run build` 가 타입 오류 없이 성공한다.
 - [x] 실제 NEIS API 키로 서울고등학교 5월 식단을 정상 조회한다 (수동 검증 완료).
-- [ ] `src/mcp`에서 MCP 서버를 `stdio` 방식으로 실행할 수 있다.
+- [ ] `src/mcp`에서 MCP 서버를 실행하고 `/mcp` 엔드포인트에 Streamable HTTP 방식으로 연결할 수 있다.
 - [ ] MCP 클라이언트에서 `getSchoolInfo`와 `getMealServiceDietInfo` 도구 및 OpenAPI 기반 입력 스키마를 확인할 수 있다.
 - [ ] 두 MCP 도구가 `NEIS_API_KEY`를 도구 인자로 노출하지 않고 NEIS JSON 응답을 반환한다.
 - [ ] 유효하지 않은 OpenAPI 명세와 NEIS 오류가 명시적인 시작 오류 또는 MCP 도구 오류로 전달된다.
@@ -399,7 +399,7 @@ npm run dev
 - 즐겨찾기 학교 (localStorage)
 - 단위/통합/E2E 테스트 추가 (pytest, Vitest, Playwright)
 - 에러/빈 상태에 대한 더 풍부한 UI (Skeleton, Toast 등)
-- MCP 원격 전송(Streamable HTTP) 및 인증 추가
+- MCP 클라이언트 인증·인가 추가
 
 ---
 
