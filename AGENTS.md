@@ -6,12 +6,16 @@
 
 ## 1. 프로젝트 개요
 
-NEIS 오픈 API(학교기본정보 / 급식식단정보) 위에 구축한 풀스택 급식 조회 앱.
+NEIS 오픈 API(학교기본정보 / 급식식단정보) 위에 구축한 풀스택 급식 조회 앱과
+OpenAPI 기반 MCP 서버 프로젝트.
 
 - 급식은 항상 **중식(lunch, `MMEAL_SC_CODE=2`)** 으로 필터링합니다.
 - 프런트엔드 ↔ 백엔드는 `/api/*` 경로로 통신합니다.
   - 개발: Vite dev 서버가 `/api`를 `http://localhost:8000`으로 프록시.
   - 운영: 프런트엔드와 백엔드가 같은 오리진의 `/api` 아래에서 동작.
+- MCP 서버는 `src/openapi.json`을 단일 명세 원본으로 사용하고 `/mcp`에서
+  Streamable HTTP 전송을 제공합니다.
+- 제품 요구사항은 `PRD.md`, 시스템 구조와 구현 결정은 `TRD.md`를 기준으로 합니다.
 
 ## 2. 디렉터리 구조
 
@@ -22,6 +26,7 @@ NEIS 오픈 API(학교기본정보 / 급식식단정보) 위에 구축한 풀스
 ├── AGENTS.md     AI 코딩 에이전트 작업 지침
 ├── README.md     프로젝트 실행·테스트·배포 문서
 ├── PRD.md        제품 요구사항
+├── TRD.md        기술 요구사항
 ├── LICENSE       MIT 라이선스
 ├── azure.yaml    azd 서비스 매핑 (api + web → Azure Container Apps)
 ├── compose.yaml  Docker Compose: 두 컨테이너 앱 오케스트레이션
@@ -30,8 +35,9 @@ NEIS 오픈 API(학교기본정보 / 급식식단정보) 위에 구축한 풀스
 └── src/
     ├── api/          FastAPI 백엔드 (Python 3.12+ / uv)
     ├── web/          React 19 + Vite + TypeScript + Tailwind v4 프런트엔드
+    ├── mcp/          OpenAPI 기반 MCP 서버 (Python 3.12+ / uv, 구현 예정)
     ├── e2e/          Playwright 엔드투엔드 테스트 (Chromium)
-    └── openapi.json  백엔드 구현 기준이 된 NEIS Open API 스펙
+    └── openapi.json  백엔드·MCP 도구의 단일 NEIS Open API 명세
 ```
 
 ### 백엔드 내부 구조 (`src/api/app/`)
@@ -49,18 +55,26 @@ NEIS 오픈 API(학교기본정보 / 급식식단정보) 위에 구축한 풀스
 - `lib/api.ts` — `/api/*` 호출 래퍼
 - `test/` — 테스트 인프라(MSW 핸들러, `renderWithProviders` 헬퍼, 통합 스위트)
 
+### MCP 서버 목표 구조 (`src/mcp/app/`)
+
+- `main.py` — `/mcp` Streamable HTTP 서버 엔트리포인트
+- `openapi.py` — `src/openapi.json` 로드 및 MCP 도구 등록
+- `neis_client.py` — 인증키 주입, NEIS 비동기 HTTP 호출, 오류 매핑
+- 최소 도구 — `getSchoolInfo`, `getMealServiceDietInfo`
+
 ## 3. 사전 준비물
 
 | 도구 | 버전 | 사용 위치 |
 | --- | --- | --- |
-| Python | 3.12+ | `src/api` |
-| `uv` | latest | `src/api` |
+| Python | 3.12+ | `src/api`, `src/mcp` |
+| `uv` | latest | `src/api`, `src/mcp` |
 | Node.js | 22+ (24 LTS 권장) | `src/web`, `src/e2e` |
 | npm | 10+ | `src/web`, `src/e2e` |
 | Docker | 24+ (Compose 플러그인) | Compose / azd (선택) |
-| NEIS API 키 | — | `src/api` 런타임 (실데이터 호출용) |
+| NEIS API 키 | — | `src/api`, `src/mcp` 런타임 (실데이터 호출용) |
 
 - NEIS 키는 저장소 루트의 `.env`에 `NEIS_API_KEY=...` 형태로 둡니다.
+- MCP 도구 인자, 응답, 로그에는 NEIS 키를 포함하지 않습니다.
 - **테스트는 NEIS 키가 필요 없습니다** — NEIS / `/api/*`를 경계에서 모킹합니다.
 
 ## 4. 명령어 (작업 디렉터리 기준)
@@ -89,6 +103,12 @@ npm test                        # Vitest 1회 실행
 npm run test:watch              # Vitest watch
 npm run test:coverage           # 커버리지 리포트
 ```
+
+### MCP 서버 (`src/mcp/`, 구현 예정)
+
+MCP 패키지를 추가할 때 `uv`를 사용하고, 실행 명령과 `/mcp` 연결 예시를
+`src/mcp/README.md`에 함께 문서화합니다. 구현 전에는 존재하지 않는 명령을
+README나 이 파일에 완료된 기능처럼 기록하지 마세요.
 
 ### E2E (`src/e2e/`)
 
@@ -122,6 +142,10 @@ azd down --purge                # 모든 리소스 삭제
 - **타입/스키마**: 요청·응답 모델은 `schemas.py`의 Pydantic 모델로 정의.
 - **프런트엔드**: 모든 백엔드 호출은 `lib/api.ts` 래퍼를 거칩니다. 컴포넌트에서
   `fetch`를 직접 호출하지 마세요. 서버 상태는 `@tanstack/react-query`로 관리.
+- **MCP 서버**: `src/openapi.json`의 `operationId`, 설명, 파라미터와 필수 여부를
+  도구 스키마에 반영합니다. 동일한 스키마를 코드에 중복 정의하지 마세요.
+  `NEIS_API_KEY`는 환경 변수로만 주입하고, NEIS 오류는 코드와 메시지가 포함된
+  MCP 도구 오류로 전달합니다. 전송 방식은 `/mcp` 기반 Streamable HTTP입니다.
 - **급식 조회 제약**: 날짜 범위는 **최대 31일**.
 
 ## 6. 테스트 원칙
@@ -130,6 +154,7 @@ azd down --purge                # 모든 리소스 삭제
 | --- | --- | --- | --- |
 | 단위/통합 (API) | `src/api/tests/` | pytest + respx | NEIS HTTP 경계 |
 | 단위/통합 (Web) | `src/web/src/**/*.test.*`, `src/web/src/test/integration/` | Vitest + RTL + MSW | `/api/*` |
+| 단위/통합 (MCP) | `src/mcp/tests/` | pytest + respx | NEIS HTTP 경계 |
 | 엔드투엔드 | `src/e2e/tests/` | Playwright | `/api/*` (`page.route`) |
 
 - **어떤 테스트도 실제 NEIS 서비스에 접근하지 않습니다.** 항상 경계에서 모킹.
@@ -157,8 +182,9 @@ azd down --purge                # 모든 리소스 삭제
 
 - **시크릿**: `.env`는 절대 커밋하지 않습니다. 키는 로컬 `.env` 또는
   `azd env set`으로만 주입합니다.
-- **의존성**: 백엔드는 `uv add`로 추가해 `uv.lock`을 갱신, 프런트엔드는 `npm`으로
-  추가해 `package-lock.json`을 갱신합니다. 락 파일을 수동 편집하지 마세요.
+- **의존성**: 백엔드와 MCP 서버는 각 패키지 디렉터리에서 `uv add`로 추가해
+  `uv.lock`을 갱신하고, 프런트엔드는 `npm`으로 추가해 `package-lock.json`을
+  갱신합니다. 락 파일을 수동 편집하지 마세요.
 - **azd 서비스 동기화**: `azure.yaml`의 서비스 이름(`api`, `web`)과 Bicep의
   `azd-service-name` 태그를 항상 일치시키세요.
 - **컨테이너 보안 강화 유지**: `compose.yaml`과 각 Dockerfile은 non-root, `cap_drop: ALL`,
