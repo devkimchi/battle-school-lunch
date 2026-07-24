@@ -7,6 +7,7 @@
 ├── README.md    프로젝트 실행·테스트·배포 문서
 ├── AGENTS.md    AI 코딩 에이전트 작업 지침
 ├── PRD.md       제품 요구사항
+├── TRD.md       기술 요구사항
 ├── .devcontainer/ GitHub Codespaces 개발 환경
 ├── azure.yaml   azd 서비스 매핑
 ├── compose.yaml Docker Compose 오케스트레이션
@@ -270,6 +271,7 @@ school-lunch/
 ├── AGENTS.md            AI 코딩 에이전트 작업 지침
 ├── README.md            현재 문서
 ├── PRD.md               제품 요구사항
+├── TRD.md               기술 요구사항
 ├── CONTRIBUTING.md      기여 가이드
 ├── SECURITY.md          취약점 신고 정책
 ├── azure.yaml           azd 서비스 매핑 (api + web → containerapp)
