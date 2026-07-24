@@ -15,7 +15,7 @@ param location string
 
 @secure()
 @description('NEIS Open API key. Stored as a Container App secret on the api service.')
-param neisApiKey string
+param neisApiKey string = ''
 
 @description('Optional: principal ID of the deploying user/SP. Used only if you want to grant additional dataplane RBAC; leave empty to skip.')
 param principalId string = ''
