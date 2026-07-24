@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+name: school-lunch
+metadata:
+  template: school-lunch@1.0.0
+
+services:
+  api:
+    project: ./src/api
+    host: containerapp
+    language: python
+    docker:
+      path: Dockerfile
+      context: .
+      remoteBuild: true
+
+  web:
+    project: ./src/web
+    host: containerapp
+    language: ts
+    docker:
+      path: Dockerfile
+      context: .
+      remoteBuild: true
+
+hooks:
+  preprovision:
+    posix:
+      shell: sh
+      continueOnError: false
+      interactive: true
+      run: ./scripts/pre-provision.sh
+    windows:
+      shell: pwsh
+      continueOnError: false
+      interactive: true
+      run: ./scripts/pre-provision.ps1
