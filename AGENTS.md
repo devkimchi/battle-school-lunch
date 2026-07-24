@@ -108,7 +108,7 @@ docker compose down             # 중지 및 제거
 
 azd auth login
 azd env new <name>
-azd env set NEIS_API_KEY <key>  # 필수 (Container App 시크릿)
+azd env set NEIS_API_KEY <key>  # 선택: 생략하면 azd up에서 안전하게 입력
 azd up                          # 프로비저닝 + 빌드 + 푸시 + 배포
 azd deploy                      # 코드 변경 후 재배포 (인프라 변경 없음)
 azd down --purge                # 모든 리소스 삭제
@@ -148,6 +148,7 @@ azd down --purge                # 모든 리소스 삭제
   만듭니다. 서로 다른 계획 작업의 변경 사항을 하나의 커밋에 섞지 마세요.
 - 모든 계획 작업과 검증을 마친 후 현재 브랜치에서 `main` 브랜치로 Pull Request를
   생성합니다.
+- 만약 커밋하지 않은 변경사항이 있을 경우 해당 변경사항을 커밋할 것인지 물어보세요.
 - PR 본문은 `.github/PULL_REQUEST_TEMPLATE.md`의 구조와 항목을 그대로 따릅니다.
 - PR의 변경 요약은 현재 브랜치와 `main` 사이의 커밋 기록을 확인해 작성하며,
   각 커밋에서 완료한 주요 변경 사항을 빠짐없이 포함합니다.

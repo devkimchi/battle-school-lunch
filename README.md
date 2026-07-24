@@ -151,16 +151,21 @@ docker compose down -v           # 네트워크까지 제거
 # 환경별 일회성 설정
 azd auth login
 azd env new <random-string>       # 임의의 이름; 리소스 그룹 접미사를 결정함
-azd env set NEIS_API_KEY <key>    # 필수; Container App 시크릿으로 저장됨
+azd env set NEIS_API_KEY <key>    # 선택: 비대화형 실행 시 미리 설정
 
 # 프로비저닝 + 빌드 + 푸시 + 배포
-azd up
+azd up                            # 키가 없으면 마스킹 입력 후 환경에 저장
 ```
 
 `azd up`은 리전을 선택하거나(또는 `AZURE_LOCATION`을 설정할 수 있음) 인프라를
 프로비저닝하고, 두 Docker 이미지를 로컬에서 빌드해 프로비저닝된 ACR로 푸시한
 뒤 Container Apps를 새 이미지로 업데이트합니다. 실행 마지막에 웹 URL이
 `SERVICE_WEB_URI`로 출력됩니다.
+
+`NEIS_API_KEY`가 현재 azd 환경에 없으면 `preprovision` 훅이 마스킹된 입력을
+요청하고 `.azure/<환경명>/.env`에 저장합니다. 이후 같은 환경의 배포에서는 저장된
+값을 재사용합니다. CI처럼 비대화형으로 실행할 때는 먼저
+`azd env set NEIS_API_KEY <key>`로 설정하세요.
 
 유용한 후속 명령어:
 
