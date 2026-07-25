@@ -204,9 +204,6 @@ aspire deploy --environment production    # 이후 변경 재배포
 aspire destroy --environment production   # Aspire가 만든 Azure 리소스 제거
 ```
 
-현재 `azd`는 TypeScript AppHost를 직접 가져오지 못하므로 `azd up`용 서비스나
-별도 Bicep 토폴로지를 병행하지 않습니다.
-
 GitHub Actions용 Entra 앱, OIDC federated credential, Azure RBAC, 저장소 variable과
 `NEIS_API_KEY` secret은 다음 스크립트 중 하나로 구성할 수 있습니다. 두 스크립트
 모두 Azure CLI와 GitHub CLI 로그인이 필요하며, `NEIS_API_KEY`는 환경 변수 또는

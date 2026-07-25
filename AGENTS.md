@@ -204,8 +204,6 @@ aspire destroy --environment production
   `uv.lock`을 갱신하고, 프런트엔드는 `npm`으로 추가해 `package-lock.json`을
   갱신합니다. 락 파일을 수동 편집하지 마세요.
 - **Azure 배포 원본**: `apphost.mts`가 Azure 토폴로지의 단일 원본입니다.
-  별도 Bicep 또는 `azd` 배포 모델을 병행하지 마세요. 현재 `azd`는 TypeScript
-  AppHost를 직접 가져오지 못합니다.
 - **컨테이너 보안 강화 유지**: `compose.yaml`과 각 Dockerfile은 non-root, `cap_drop: ALL`,
   `no-new-privileges`, read-only 루트 파일시스템을 사용합니다. 디버깅 편의를 위해
   이 설정을 약화시키지 마세요.
