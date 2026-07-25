@@ -5,15 +5,19 @@
     "context": ".."
   },
   "features": {
-    "ghcr.io/devcontainers/features/node:1": {
-      "version": "24"
+    "ghcr.io/microsoft/aspire-devcontainer-feature/aspire:latest": {
+      "installCli": true
     },
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+    "ghcr.io/devcontainers/features/node:latest": {
+      "version": "24",
+      "pnpmVersion": "none"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:latest": {
       "version": "latest",
       "moby": true,
       "dockerDashComposeVersion": "v2"
     },
-    "ghcr.io/devcontainers/features/azure-cli:1": {
+    "ghcr.io/devcontainers/features/azure-cli:latest": {
       "version": "latest"
     }
   },
@@ -22,7 +26,7 @@
   },
   "secrets": {
     "NEIS_API_KEY": {
-      "description": "NEIS Open API key used by the FastAPI backend and Docker Compose."
+      "description": "NEIS Open API key injected into the FastAPI API by Aspire or Docker Compose."
     }
   },
   "forwardPorts": [5173, 8000, 8080, 4173],
@@ -49,6 +53,7 @@
       "extensions": [
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
+        "microsoft-aspire.aspire-vscode",
         "ms-azuretools.vscode-docker",
         "ms-playwright.playwright",
         "ms-python.python",
@@ -60,6 +65,11 @@
         "python.testing.pytestEnabled": true,
         "python.testing.pytestArgs": ["src/api/tests"],
         "eslint.workingDirectories": ["src/web"],
+        "remote.autoForwardPorts": true,
+        "remote.autoForwardPortsSource": "hybrid",
+        "remote.otherPortsAttributes": {
+          "onAutoForward": "ignore"
+        },
         "js": {
           "ts.sdk.path": "src/web/node_modules/typescript/lib"
         }

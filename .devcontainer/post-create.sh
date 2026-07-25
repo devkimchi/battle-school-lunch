@@ -5,6 +5,9 @@ set -euo pipefail
 workspace_dir="${CODESPACE_VSCODE_FOLDER:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "${workspace_dir}"
 
+echo "Installing Aspire AppHost dependencies..."
+npm ci
+
 echo "Installing FastAPI dependencies..."
 (
   cd src/api
@@ -25,4 +28,4 @@ if [[ -z "${NEIS_API_KEY:-}" ]]; then
   echo "NEIS_API_KEY is not configured. Add it as a Codespaces secret for live API requests."
 fi
 
-echo "Codespaces environment is ready."
+echo "Aspire development environment is ready."
