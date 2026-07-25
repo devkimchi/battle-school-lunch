@@ -11,7 +11,8 @@ OpenAPI 기반 MCP 서버 프로젝트.
 
 - 급식은 항상 **중식(lunch, `MMEAL_SC_CODE=2`)** 으로 필터링합니다.
 - 프런트엔드 ↔ 백엔드는 `/api/*` 경로로 통신합니다.
-  - 개발: Vite dev 서버가 `/api`를 `http://localhost:8000`으로 프록시.
+  - Aspire 개발: AppHost가 주입한 `API_URL`로 Vite가 `/api`를 프록시.
+  - 개별 실행: `API_URL`이 없으면 `http://localhost:8000`으로 프록시.
   - 운영: 프런트엔드와 백엔드가 같은 오리진의 `/api` 아래에서 동작.
 - MCP 서버는 `src/openapi.json`을 단일 명세 원본으로 사용하고 `/mcp`에서
   Streamable HTTP 전송을 제공합니다.
@@ -28,6 +29,8 @@ OpenAPI 기반 MCP 서버 프로젝트.
 ├── PRD.md        제품 요구사항
 ├── TRD.md        기술 요구사항
 ├── LICENSE       MIT 라이선스
+├── apphost.mts   Aspire TypeScript AppHost (api + web)
+├── aspire.config.json Aspire AppHost 설정
 ├── azure.yaml    azd 서비스 매핑 (api + web → Azure Container Apps)
 ├── compose.yaml  Docker Compose: 두 컨테이너 앱 오케스트레이션
 ├── .env.example  환경 변수 템플릿 (NEIS_API_KEY, 선택: WEB_PORT)
@@ -70,6 +73,7 @@ OpenAPI 기반 MCP 서버 프로젝트.
 | `uv` | latest | `src/api`, `src/mcp` |
 | Node.js | 22+ (24 LTS 권장) | `src/web`, `src/e2e` |
 | npm | 10+ | `src/web`, `src/e2e` |
+| Aspire CLI | 13.4+ | 로컬 풀스택 오케스트레이션 |
 | Docker | 24+ (Compose 플러그인) | Compose / azd (선택) |
 | NEIS API 키 | — | `src/api`, `src/mcp` 런타임 (실데이터 호출용) |
 
@@ -123,6 +127,10 @@ npm run report                  # 마지막 리포트 보기
 ### 풀스택 / 배포 (저장소 루트)
 
 ```bash
+npm install                     # TypeScript AppHost 의존성
+npm run dev                     # Aspire로 api + web 실행
+aspire stop                     # Aspire AppHost와 리소스 중지
+
 docker compose up -d --build    # 두 서비스 컨테이너 기동 (web만 외부 노출)
 docker compose down             # 중지 및 제거
 
@@ -142,6 +150,9 @@ azd down --purge                # 모든 리소스 삭제
 - **타입/스키마**: 요청·응답 모델은 `schemas.py`의 Pydantic 모델로 정의.
 - **프런트엔드**: 모든 백엔드 호출은 `lib/api.ts` 래퍼를 거칩니다. 컴포넌트에서
   `fetch`를 직접 호출하지 마세요. 서버 상태는 `@tanstack/react-query`로 관리.
+- **Aspire**: `apphost.mts`만 직접 편집하고 생성물인 `.aspire/modules/`는 수정하지
+  마세요. `web`은 `api`를 참조하고 준비 상태를 기다리며, API URL은
+  `withEnvironment("API_URL", api.getEndpoint("http"))`로 주입합니다.
 - **MCP 서버**: `src/openapi.json`의 `operationId`, 설명, 파라미터와 필수 여부를
   도구 스키마에 반영합니다. 동일한 스키마를 코드에 중복 정의하지 마세요.
   `NEIS_API_KEY`는 환경 변수로만 주입하고, NEIS 오류는 코드와 메시지가 포함된

@@ -9,6 +9,8 @@
 ├── PRD.md       제품 요구사항
 ├── TRD.md       기술 요구사항
 ├── .devcontainer/ GitHub Codespaces 개발 환경
+├── apphost.mts  Aspire 로컬 오케스트레이션 (api + web)
+├── aspire.config.json Aspire AppHost 설정
 ├── azure.yaml   azd 서비스 매핑
 ├── compose.yaml Docker Compose 오케스트레이션
 ├── .env.example 환경 변수 템플릿
@@ -39,6 +41,7 @@ MCP 서버는 `src/openapi.json`에서 `getSchoolInfo`와
 | [`uv`](https://docs.astral.sh/uv/) | latest | `src/api`, `src/mcp` (네이티브 개발) |
 | Node.js | 22+ (24 LTS 권장) | `src/web`, `src/e2e` (네이티브 개발) |
 | npm | 10+ | `src/web`, `src/e2e` |
+| [Aspire CLI](https://aspire.dev/get-started/install-cli/) | 13.4+ | `api` + `web` 로컬 오케스트레이션 |
 | Docker | Compose 플러그인 포함 24+ | 컨테이너/Compose 흐름 (선택 사항) |
 | NEIS API 키 | — | `src/api`, `src/mcp` 런타임 (실데이터 호출용) |
 
@@ -60,11 +63,27 @@ API·웹·E2E 의존성과 Playwright Chromium도 최초 생성 시 준비됩니
 
 ## 2. 로컬에서 앱 실행
 
-두 가지 방법이 있습니다. `uv`와 `npm`으로 앱을 직접 실행하는 방법(빠른 이너
-루프 개발에 적합)과, Docker Compose로 운영용 컨테이너를 실행하는 방법(실제
-배포될 이미지를 점검하기 좋음)입니다.
+세 가지 방법이 있습니다. Aspire로 두 앱을 함께 실행하는 방법(권장), `uv`와
+`npm`으로 각 앱을 직접 실행하는 방법, Docker Compose로 운영용 컨테이너를
+실행하는 방법입니다.
 
-### 2.1 네이티브 (uv + npm)
+### 2.1 Aspire (권장, 두 앱을 함께)
+
+루트의 TypeScript AppHost는 FastAPI를 Uvicorn 리소스로, React 앱을 Vite
+리소스로 실행합니다. Aspire가 포트를 동적으로 할당하고 API가 준비된 후 웹을
+시작하며, `API_URL`을 통해 Vite의 `/api` 프록시를 연결합니다.
+
+```bash
+npm install
+npm run dev
+```
+
+Aspire 대시보드에 `api`와 `web`의 상태, 로그, 트레이스, 실행 URL이 표시됩니다.
+`src/api`의 Python 환경과 `src/web`의 npm 의존성은 각 Aspire 통합이 시작 전에
+준비합니다. 종료하려면 실행 터미널에서 `Ctrl+C`를 누르거나 다른 터미널에서
+`aspire stop`을 실행하세요.
+
+### 2.2 네이티브 (uv + npm)
 
 터미널 두 개가 필요합니다. 하나는 API, 다른 하나는 웹 앱용입니다.
 
@@ -104,7 +123,7 @@ MCP 서버는 `src/mcp`에 추가되며 `/mcp`에서 Streamable HTTP로 동작�
 도구 입력 스키마는 `src/openapi.json`에서 로드하며 API 키는 서버 환경 변수로만
 주입합니다.
 
-### 2.2 Docker Compose (운영 스타일, 두 앱을 함께)
+### 2.3 Docker Compose (운영 스타일, 두 앱을 함께)
 
 루트의 `compose.yaml`은 강화된 두 이미지(uv 기반 FastAPI 백엔드,
 unprivileged nginx로 서빙되는 Vite 빌드 프런트엔드)를 빌드하고 오케스트레이션
@@ -141,7 +160,7 @@ docker compose down -v           # 네트워크까지 제거
 - `NEIS_API_KEY`는 필수입니다 — 설정되지 않으면 Compose가 명확한 에러와 함께
   즉시 실패합니다.
 
-### 2.3 `azd up`을 통한 Azure Container Apps 배포
+### 2.4 `azd up`을 통한 Azure Container Apps 배포
 
 `infra/` 아래의 Bicep과 기존 Dockerfile을 사용해 두 앱을 Azure Container Apps
 에 프로비저닝 및 배포합니다. 프런트엔드(`web`)만 퍼블릭 ingress이고, 백엔드
