@@ -7,6 +7,50 @@
 
 ## [출시 예정]
 
+## [0.2.0] - 2026-07-25
+
+### 추가
+
+- OpenAPI 명세를 단일 원본으로 사용하는 MCP 서버 요구사항과 `/mcp` Streamable
+  HTTP 전송, `getSchoolInfo`, `getMealServiceDietInfo` 도구 명세 추가
+  ([#28](https://github.com/justinyoo/school-lunch/pull/28))
+- Python API와 Vite 웹을 함께 실행하는 TypeScript Aspire AppHost 및 로컬
+  오케스트레이션 구성 추가
+  ([#30](https://github.com/justinyoo/school-lunch/pull/30))
+- Aspire 초기화, 리소스 연결, 실행, 모니터링 및 배포용 에이전트 스킬 추가
+  ([#30](https://github.com/justinyoo/school-lunch/pull/30))
+
+### 변경
+
+- 제품 요구사항과 기술 설계를 `PRD.md`와 `TRD.md`로 분리하고 MCP 구조, 테스트
+  경계 및 구현 지침을 관련 문서에 반영
+  ([#28](https://github.com/justinyoo/school-lunch/pull/28))
+- Azure 배포 원본을 수동 Bicep/azd 구성에서 Aspire AppHost 기반 Azure Container
+  Apps 모델로 전환
+  ([#27](https://github.com/justinyoo/school-lunch/pull/27),
+  [#30](https://github.com/justinyoo/school-lunch/pull/30))
+- Dev Container에 Aspire CLI, Aspire VS Code 확장, 동적 포트 전달 및 AppHost
+  의존성 설치를 추가
+  ([#31](https://github.com/justinyoo/school-lunch/pull/31))
+
+### 수정
+
+- Azure 배포 시 `NEIS_API_KEY`를 안전하게 재사용, 입력 및 검증하도록 azd 훅 개선
+  ([#27](https://github.com/justinyoo/school-lunch/pull/27))
+- Azure Container Apps에서 API Uvicorn 명령과 nginx의 내부 API 프록시가 올바르게
+  동작하도록 게시 구성을 수정
+  ([#30](https://github.com/justinyoo/school-lunch/pull/30))
+- Codespaces 생성 시 오래된 Yarn APT 소스와 불필요한 pnpm 설치로 Dev Container
+  기능 설치가 실패하는 문제 수정
+  ([#31](https://github.com/justinyoo/school-lunch/pull/31))
+
+### 포함된 Pull Request
+
+- [#27 Improve azd NEIS API key prompting](https://github.com/justinyoo/school-lunch/pull/27)
+- [#28 Define OpenAPI-based MCP server requirements](https://github.com/justinyoo/school-lunch/pull/28)
+- [#30 Initialize Aspire orchestration and Azure deployment](https://github.com/justinyoo/school-lunch/pull/30)
+- [#31 Configure Aspire tooling in the devcontainer](https://github.com/justinyoo/school-lunch/pull/31)
+
 ## [0.1.0] - 2026-07-24
 
 ### 추가
@@ -27,5 +71,6 @@
 - 컨테이너 내부의 얕은 경로에서도 API 설정이 `.env`를 안전하게 탐색하도록 수정
 - Dependabot PR 간 잠금 파일 충돌과 상호 의존 버전 불일치 해결
 
-[출시 예정]: https://github.com/justinyoo/school-lunch/compare/v0.1.0...HEAD
+[출시 예정]: https://github.com/justinyoo/school-lunch/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/justinyoo/school-lunch/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/justinyoo/school-lunch/releases/tag/v0.1.0
