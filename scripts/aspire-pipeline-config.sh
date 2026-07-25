@@ -20,7 +20,7 @@ Options:
   --subscription-id ID          Azure subscription (default: current az subscription)
   --resource-group NAME         Azure resource group
   --location LOCATION           Azure location
-  --app-name NAME               Microsoft Entra application display name
+  --app-name NAME               Entra app name (default: resource group with spn- prefix)
   --environment NAME            GitHub environment used by the workflow
   --enable-deployment           Set AZURE_DEPLOYMENT to true
   --help                        Show this help
@@ -95,7 +95,7 @@ az account set --subscription "$SUBSCRIPTION_ID"
 TENANT_ID="$(az account show --query tenantId --output tsv)"
 
 if [[ -z "$APP_NAME" ]]; then
-  APP_NAME="${REPOSITORY//\//-}-github-actions"
+  APP_NAME="spn-${AZURE_RESOURCE_GROUP#rg-}"
 fi
 
 if [[ -z "${NEIS_API_KEY:-}" ]]; then

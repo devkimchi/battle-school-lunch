@@ -90,7 +90,8 @@ $null = Invoke-NativeText az @("account", "set", "--subscription", $Subscription
 $TenantId = Invoke-NativeText az @("account", "show", "--query", "tenantId", "--output", "tsv")
 
 if ([string]::IsNullOrWhiteSpace($AppName)) {
-    $AppName = "$($Repository.Replace('/', '-'))-github-actions"
+    $resourceName = $ResourceGroup -replace "^rg-", ""
+    $AppName = "spn-$resourceName"
 }
 
 if ([string]::IsNullOrWhiteSpace($env:NEIS_API_KEY)) {
