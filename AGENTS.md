@@ -157,9 +157,10 @@ aspire destroy --environment production
   마세요. `web`은 `api`를 참조하고 준비 상태를 기다리며, API URL은
   `withEnvironment("API_URL", api.getEndpoint("http"))`로 주입합니다.
   `NEIS_API_KEY`는 secret parameter로 모델링해 `api` 환경 변수로 전달합니다.
-  Azure 배포에서는 `aca` Container Apps environment와
-  `publishAsStaticWebsite({ apiPath: "/api", apiTarget: api })` 생산 모델을
-  유지합니다. `web`만 external endpoint이고 `api`는 internal입니다.
+  Azure 배포에서는 `aca` Container Apps environment와 기존 nginx Dockerfile을
+  사용하는 `publishAsDockerFile(...)` 생산 모델을 유지합니다. nginx의 target
+  port는 8080이고 `API_UPSTREAM`에는 internal `api` endpoint를 주입합니다.
+  `web`만 external endpoint이고 `api`는 internal입니다.
 - **MCP 서버**: `src/openapi.json`의 `operationId`, 설명, 파라미터와 필수 여부를
   도구 스키마에 반영합니다. 동일한 스키마를 코드에 중복 정의하지 마세요.
   `NEIS_API_KEY`는 환경 변수로만 주입하고, NEIS 오류는 코드와 메시지가 포함된
@@ -213,5 +214,5 @@ aspire destroy --environment production
   `proxy_ssl_server_name on`으로 HTTPS 업스트림에 연결됩니다. 이 설정을 변경할 때
   TLS SNI / 호스트 라우팅이 깨지지 않도록 주의하세요.
 - **CORS**: 허용 오리진은 `src/api/app/config.py`의 `CORS_ORIGINS`로 제어합니다.
-  Azure에서는 public `web`의 YARP가 같은 오리진 `/api`를 internal `api`로
+  Azure에서는 public `web`의 nginx가 같은 오리진 `/api`를 internal `api`로
   프록시하므로 브라우저에 API origin을 별도로 노출하지 않습니다.

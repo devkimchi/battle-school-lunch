@@ -32,7 +32,7 @@ NEIS Open API
 - 백엔드와 MCP 서버는 `NEIS_API_KEY`를 서버 환경 변수로만 주입받는다.
 - 로컬에서는 TypeScript Aspire AppHost가 `api`와 `web`을 오케스트레이션한다.
 - Azure에서는 AppHost가 하나의 Container Apps Environment에 internal `api`와
-  public `web`을 배포하며, `web`의 YARP가 `/api`를 내부 서비스로 프록시한다.
+  public `web`을 배포하며, `web`의 nginx가 `/api`를 내부 서비스로 프록시한다.
 - Azure 배포 토폴로지의 단일 원본은 `apphost.mts`이며 `aspire deploy`로 적용한다.
 
 ---

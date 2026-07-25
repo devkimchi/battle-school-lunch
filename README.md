@@ -164,8 +164,9 @@ docker compose down -v           # 네트워크까지 제거
 
 `apphost.mts`가 Azure Container Apps 환경과 배포 토폴로지의 단일 원본입니다.
 `api`는 internal ingress를 사용하는 Container App으로 배포되고,
-`web`은 정적 Vite 빌드를 YARP 컨테이너로 제공하는 public ingress가 됩니다.
-YARP가 같은 오리진의 `/api` 요청을 내부 `api` 리소스로 전달합니다.
+`web`은 정적 Vite 빌드를 nginx 컨테이너의 public ingress로 제공합니다.
+Aspire가 주입한 `API_UPSTREAM`을 사용해 nginx가 같은 오리진의 `/api` 요청을
+내부 `api` 리소스로 전달합니다.
 
 Aspire는 Container Apps Environment, Azure Container Registry, managed identity,
 Aspire dashboard와 두 Container App을 프로비저닝하고, 이미지를 빌드·푸시합니다.
