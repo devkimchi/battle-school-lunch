@@ -153,6 +153,7 @@ azd down --purge                # 모든 리소스 삭제
 - **Aspire**: `apphost.mts`만 직접 편집하고 생성물인 `.aspire/modules/`는 수정하지
   마세요. `web`은 `api`를 참조하고 준비 상태를 기다리며, API URL은
   `withEnvironment("API_URL", api.getEndpoint("http"))`로 주입합니다.
+  `NEIS_API_KEY`는 secret parameter로 모델링해 `api` 환경 변수로 전달합니다.
 - **MCP 서버**: `src/openapi.json`의 `operationId`, 설명, 파라미터와 필수 여부를
   도구 스키마에 반영합니다. 동일한 스키마를 코드에 중복 정의하지 마세요.
   `NEIS_API_KEY`는 환경 변수로만 주입하고, NEIS 오류는 코드와 메시지가 포함된

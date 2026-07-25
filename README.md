@@ -80,8 +80,9 @@ npm run dev
 
 Aspire 대시보드에 `api`와 `web`의 상태, 로그, 트레이스, 실행 URL이 표시됩니다.
 `src/api`의 Python 환경과 `src/web`의 npm 의존성은 각 Aspire 통합이 시작 전에
-준비합니다. 종료하려면 실행 터미널에서 `Ctrl+C`를 누르거나 다른 터미널에서
-`aspire stop`을 실행하세요.
+준비합니다. AppHost는 루트 `.env`의 `NEIS_API_KEY`를 secret parameter로 모델링해
+API에 주입하며, 값이 없으면 Aspire가 입력을 요청합니다. 종료하려면 실행 터미널에서
+`Ctrl+C`를 누르거나 다른 터미널에서 `aspire stop`을 실행하세요.
 
 ### 2.2 네이티브 (uv + npm)
 
