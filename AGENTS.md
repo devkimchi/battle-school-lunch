@@ -31,7 +31,6 @@ OpenAPI 기반 MCP 서버 프로젝트.
 ├── LICENSE       MIT 라이선스
 ├── apphost.mts   Aspire TypeScript AppHost (api + web)
 ├── aspire.config.json Aspire AppHost 설정
-├── azure.yaml    Azure 프로젝트 식별자 (배포 모델은 apphost.mts)
 ├── compose.yaml  Docker Compose: 두 컨테이너 앱 오케스트레이션
 ├── .env.example  환경 변수 템플릿 (NEIS_API_KEY, 선택: WEB_PORT)
 └── src/
@@ -205,8 +204,6 @@ aspire destroy --environment production
   `uv.lock`을 갱신하고, 프런트엔드는 `npm`으로 추가해 `package-lock.json`을
   갱신합니다. 락 파일을 수동 편집하지 마세요.
 - **Azure 배포 원본**: `apphost.mts`가 Azure 토폴로지의 단일 원본입니다.
-  `azure.yaml`에 `api`/`web` 서비스를 추가하거나 별도 Bicep 배포를 병행하지
-  마세요. 현재 `azd`는 TypeScript AppHost를 직접 가져오지 못합니다.
 - **컨테이너 보안 강화 유지**: `compose.yaml`과 각 Dockerfile은 non-root, `cap_drop: ALL`,
   `no-new-privileges`, read-only 루트 파일시스템을 사용합니다. 디버깅 편의를 위해
   이 설정을 약화시키지 마세요.
