@@ -21,6 +21,19 @@ const neisApiKey = await builder.addParameter('neis-api-key', {
 const api = await builder
   .addUvicornApp('api', './src/api', 'app.main:app')
   .withUv()
+  .publishAsDockerFile(async (container) => {
+    await container
+      .withEntrypoint('uvicorn')
+      .withArgs([
+        'app.main:app',
+        '--host',
+        '0.0.0.0',
+        '--port',
+        '8000',
+        '--proxy-headers',
+        '--forwarded-allow-ips=*',
+      ]);
+  })
   .withEnvironment('NEIS_API_KEY', neisApiKey)
   .withHttpHealthCheck({ path: '/api/health' });
 
