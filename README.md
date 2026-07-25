@@ -53,8 +53,9 @@ Docker Compose도 동일한 변수를 읽습니다). MCP 서버도 같은 환경
 ### GitHub Codespaces
 
 저장소의 **Code → Codespaces → Create codespace**를 선택하면 `.devcontainer/` 설정으로
-Python 3.12, Node.js 24, uv, Docker Compose 및 Azure CLI가 자동 설치됩니다.
-API·웹·E2E 의존성과 Playwright Chromium도 최초 생성 시 준비됩니다.
+Python 3.12, Node.js 24, uv, Aspire CLI, Docker Compose 및 Azure CLI가 자동
+설치됩니다. Aspire VS Code 확장과 동적 포트 전달도 활성화되며,
+AppHost·API·웹·E2E 의존성과 Playwright Chromium은 최초 생성 시 준비됩니다.
 
 실제 NEIS 데이터를 조회하려면 저장소 또는 사용자 Codespaces 시크릿에
 `NEIS_API_KEY`를 등록하세요. 시크릿은 환경 변수로 주입되므로 `.env` 파일을 만들

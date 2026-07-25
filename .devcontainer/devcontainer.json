@@ -5,6 +5,9 @@
     "context": ".."
   },
   "features": {
+    "ghcr.io/microsoft/aspire-devcontainer-feature/aspire:2": {
+      "installCli": true
+    },
     "ghcr.io/devcontainers/features/node:1": {
       "version": "24"
     },
@@ -49,6 +52,7 @@
       "extensions": [
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
+        "microsoft-aspire.aspire-vscode",
         "ms-azuretools.vscode-docker",
         "ms-playwright.playwright",
         "ms-python.python",
@@ -60,6 +64,11 @@
         "python.testing.pytestEnabled": true,
         "python.testing.pytestArgs": ["src/api/tests"],
         "eslint.workingDirectories": ["src/web"],
+        "remote.autoForwardPorts": true,
+        "remote.autoForwardPortsSource": "hybrid",
+        "remote.otherPortsAttributes": {
+          "onAutoForward": "ignore"
+        },
         "js": {
           "ts.sdk.path": "src/web/node_modules/typescript/lib"
         }
