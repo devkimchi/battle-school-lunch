@@ -215,12 +215,16 @@ GitHub Actions용 Entra 앱, OIDC federated credential, Azure RBAC, 저장소 va
 보안 프롬프트로 입력받습니다.
 
 ```bash
-./scripts/aspire-pipeline-config.sh --enable-deployment
+./scripts/aspire-pipeline-config.sh
 ```
 
 ```powershell
-./scripts/aspire-pipeline-config.ps1 -EnableDeployment
+./scripts/aspire-pipeline-config.ps1
 ```
+
+배포를 바로 활성화하려면 Bash에서는 `--enable-deployment`, PowerShell에서는
+`-EnableDeployment`를 선택적으로 추가합니다. 생략하면 `AZURE_DEPLOYMENT`는
+`false`로 저장됩니다.
 
 ## 3. 앱 테스트
 
