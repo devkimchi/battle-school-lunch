@@ -89,9 +89,44 @@ if ([string]::IsNullOrWhiteSpace($SubscriptionId)) {
 $null = Invoke-NativeText az @("account", "set", "--subscription", $SubscriptionId)
 $TenantId = Invoke-NativeText az @("account", "show", "--query", "tenantId", "--output", "tsv")
 
+$null = Invoke-NativeText az @(
+    "group", "create",
+    "--name", $ResourceGroup,
+    "--location", $Location,
+    "--subscription", $SubscriptionId,
+    "--output", "none"
+)
+
 if ([string]::IsNullOrWhiteSpace($AppName)) {
+    $tokenTemplatePath = Join-Path ([System.IO.Path]::GetTempPath()) "aspire-pipeline-config-$([guid]::NewGuid()).json"
+    $tokenTemplate = @{
+        '$schema'     = "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#"
+        contentVersion = "1.0.0.0"
+        resources      = @()
+        outputs        = @{
+            resourceSuffix = @{
+                type  = "string"
+                value = "[uniqueString(resourceGroup().id)]"
+            }
+        }
+    }
+
+    try {
+        $tokenTemplate | ConvertTo-Json -Depth 5 | Set-Content -Path $tokenTemplatePath -Encoding utf8
+        $resourceSuffix = Invoke-NativeText az @(
+            "deployment", "group", "create",
+            "--name", "aspire-pipeline-config-token",
+            "--resource-group", $ResourceGroup,
+            "--template-file", $tokenTemplatePath,
+            "--query", "properties.outputs.resourceSuffix.value",
+            "--output", "tsv"
+        )
+    } finally {
+        Remove-Item -Path $tokenTemplatePath -Force -ErrorAction SilentlyContinue
+    }
+
     $resourceName = $ResourceGroup -replace "^rg-", ""
-    $AppName = "spn-$resourceName"
+    $AppName = "spn-$resourceName-$resourceSuffix"
 }
 
 if ([string]::IsNullOrWhiteSpace($env:NEIS_API_KEY)) {
@@ -147,14 +182,6 @@ if ([string]::IsNullOrWhiteSpace($SpObjectId)) {
         "--output", "tsv"
     )
 }
-
-$null = Invoke-NativeText az @(
-    "group", "create",
-    "--name", $ResourceGroup,
-    "--location", $Location,
-    "--subscription", $SubscriptionId,
-    "--output", "none"
-)
 
 $scope = "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup"
 foreach ($role in @("Contributor", "Role Based Access Control Administrator")) {

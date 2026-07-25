@@ -20,7 +20,7 @@ Options:
   --subscription-id ID          Azure subscription (default: current az subscription)
   --resource-group NAME         Azure resource group
   --location LOCATION           Azure location
-  --app-name NAME               Entra app name (default: resource group with spn- prefix)
+  --app-name NAME               Entra app name (default: spn-<resource-group>-<ARM suffix>)
   --environment NAME            GitHub environment used by the workflow
   --enable-deployment           Set AZURE_DEPLOYMENT to true
   --help                        Show this help
@@ -94,8 +94,39 @@ fi
 az account set --subscription "$SUBSCRIPTION_ID"
 TENANT_ID="$(az account show --query tenantId --output tsv)"
 
+az group create \
+  --name "$AZURE_RESOURCE_GROUP" \
+  --location "$AZURE_LOCATION" \
+  --subscription "$SUBSCRIPTION_ID" \
+  --output none
+
 if [[ -z "$APP_NAME" ]]; then
-  APP_NAME="spn-${AZURE_RESOURCE_GROUP#rg-}"
+  token_template="$(mktemp)"
+  trap 'rm -f "$token_template"' EXIT
+  cat >"$token_template" <<'JSON'
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": [],
+  "outputs": {
+    "resourceSuffix": {
+      "type": "string",
+      "value": "[uniqueString(resourceGroup().id)]"
+    }
+  }
+}
+JSON
+
+  RESOURCE_SUFFIX="$(az deployment group create \
+    --name aspire-pipeline-config-token \
+    --resource-group "$AZURE_RESOURCE_GROUP" \
+    --template-file "$token_template" \
+    --query properties.outputs.resourceSuffix.value \
+    --output tsv)"
+  rm -f "$token_template"
+  trap - EXIT
+
+  APP_NAME="spn-${AZURE_RESOURCE_GROUP#rg-}-$RESOURCE_SUFFIX"
 fi
 
 if [[ -z "${NEIS_API_KEY:-}" ]]; then
@@ -124,12 +155,6 @@ SP_OBJECT_ID="$(az ad sp list --filter "appId eq '$APP_ID'" --query '[0].id' --o
 if [[ -z "$SP_OBJECT_ID" ]]; then
   SP_OBJECT_ID="$(az ad sp create --id "$APP_ID" --query id --output tsv)"
 fi
-
-az group create \
-  --name "$AZURE_RESOURCE_GROUP" \
-  --location "$AZURE_LOCATION" \
-  --subscription "$SUBSCRIPTION_ID" \
-  --output none
 
 SCOPE="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$AZURE_RESOURCE_GROUP"
 for role in Contributor "Role Based Access Control Administrator"; do
