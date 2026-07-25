@@ -204,3 +204,9 @@ unset NEIS_API_KEY
 echo "Azure deployment identity and GitHub Actions settings configured for $REPOSITORY."
 echo "Entra application client ID: $APP_ID"
 echo "Federated subject: $SUBJECT"
+
+if [[ "$AZURE_DEPLOYMENT" == "true" ]]; then
+  echo "You can now push your commit to the remote repository to trigger deployment."
+else
+  echo "Deployment remains disabled. Re-run with --enable-deployment before pushing to deploy."
+fi

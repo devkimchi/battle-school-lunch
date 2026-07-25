@@ -233,3 +233,9 @@ $secureApiKey = $null
 Write-Host "Azure deployment identity and GitHub Actions settings configured for $Repository."
 Write-Host "Entra application client ID: $AppId"
 Write-Host "Federated subject: $subject"
+
+if ($EnableDeployment.IsPresent) {
+    Write-Host "You can now push your commit to the remote repository to trigger deployment."
+} else {
+    Write-Host "Deployment remains disabled. Re-run with -EnableDeployment before pushing to deploy."
+}
