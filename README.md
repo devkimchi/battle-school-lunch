@@ -11,7 +11,6 @@
 ├── .devcontainer/ GitHub Codespaces 개발 환경
 ├── apphost.mts  Aspire 오케스트레이션·Azure 배포 모델 (api + web)
 ├── aspire.config.json Aspire AppHost 설정
-├── azure.yaml   Azure 프로젝트 식별자 (배포 모델은 apphost.mts)
 ├── compose.yaml Docker Compose 오케스트레이션
 ├── .env.example 환경 변수 템플릿
 └── src/
@@ -205,9 +204,8 @@ aspire deploy --environment production    # 이후 변경 재배포
 aspire destroy --environment production   # Aspire가 만든 Azure 리소스 제거
 ```
 
-`azure.yaml`에는 프로젝트 식별자만 남아 있습니다. 현재 `azd`는 TypeScript
-AppHost를 직접 가져오지 못하므로 `azd up`용 서비스나 별도 Bicep 토폴로지를
-병행하지 않습니다.
+현재 `azd`는 TypeScript AppHost를 직접 가져오지 못하므로 `azd up`용 서비스나
+별도 Bicep 토폴로지를 병행하지 않습니다.
 
 GitHub Actions용 Entra 앱, OIDC federated credential, Azure RBAC, 저장소 variable과
 `NEIS_API_KEY` secret은 다음 스크립트 중 하나로 구성할 수 있습니다. 두 스크립트
@@ -317,7 +315,6 @@ school-lunch/
 ├── SECURITY.md          취약점 신고 정책
 ├── apphost.mts          Aspire 로컬 오케스트레이션·Azure 배포 모델
 ├── aspire.config.json   Aspire AppHost 설정·통합 패키지
-├── azure.yaml           Azure 프로젝트 식별자
 ├── compose.yaml         Docker Compose: api + web 오케스트레이션
 ├── .env.example         환경 변수 템플릿 (NEIS_API_KEY, WEB_PORT)
 └── src/
