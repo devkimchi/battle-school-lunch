@@ -185,11 +185,11 @@ set_secret() {
   printf '%s' "$value" | gh secret set "$name" --repo "$REPOSITORY"
 }
 
-set_secret AZURE_CLIENT_ID "$APP_ID"
-set_secret AZURE_TENANT_ID "$TENANT_ID"
-set_secret AZURE_SUBSCRIPTION_ID "$SUBSCRIPTION_ID"
 set_secret NEIS_API_KEY "$NEIS_API_KEY"
 
+gh variable set AZURE_CLIENT_ID --body "$APP_ID" --repo "$REPOSITORY"
+gh variable set AZURE_TENANT_ID --body "$TENANT_ID" --repo "$REPOSITORY"
+gh variable set AZURE_SUBSCRIPTION_ID --body "$SUBSCRIPTION_ID" --repo "$REPOSITORY"
 gh variable set AZURE_DEPLOYMENT --body "$AZURE_DEPLOYMENT" --repo "$REPOSITORY"
 gh variable set AZURE_LOCATION --body "$AZURE_LOCATION" --repo "$REPOSITORY"
 gh variable set AZURE_RESOURCE_GROUP --body "$AZURE_RESOURCE_GROUP" --repo "$REPOSITORY"

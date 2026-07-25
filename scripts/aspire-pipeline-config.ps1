@@ -216,11 +216,11 @@ $null = Invoke-NativeText gh @(
     "--silent"
 )
 
-Set-GitHubSecret -Name "AZURE_CLIENT_ID" -Value $AppId -TargetRepository $Repository
-Set-GitHubSecret -Name "AZURE_TENANT_ID" -Value $TenantId -TargetRepository $Repository
-Set-GitHubSecret -Name "AZURE_SUBSCRIPTION_ID" -Value $SubscriptionId -TargetRepository $Repository
 Set-GitHubSecret -Name "NEIS_API_KEY" -Value $NeisApiKey -TargetRepository $Repository
 
+$null = Invoke-NativeText gh @("variable", "set", "AZURE_CLIENT_ID", "--body", $AppId, "--repo", $Repository)
+$null = Invoke-NativeText gh @("variable", "set", "AZURE_TENANT_ID", "--body", $TenantId, "--repo", $Repository)
+$null = Invoke-NativeText gh @("variable", "set", "AZURE_SUBSCRIPTION_ID", "--body", $SubscriptionId, "--repo", $Repository)
 $null = Invoke-NativeText gh @("variable", "set", "AZURE_DEPLOYMENT", "--body", "true", "--repo", $Repository)
 $null = Invoke-NativeText gh @("variable", "set", "AZURE_LOCATION", "--body", $Location, "--repo", $Repository)
 $null = Invoke-NativeText gh @("variable", "set", "AZURE_RESOURCE_GROUP", "--body", $ResourceGroup, "--repo", $Repository)
