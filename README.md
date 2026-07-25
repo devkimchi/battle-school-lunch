@@ -212,7 +212,9 @@ AppHost를 직접 가져오지 못하므로 `azd up`용 서비스나 별도 Bice
 GitHub Actions용 Entra 앱, OIDC federated credential, Azure RBAC, 저장소 variable과
 `NEIS_API_KEY` secret은 다음 스크립트 중 하나로 구성할 수 있습니다. 두 스크립트
 모두 Azure CLI와 GitHub CLI 로그인이 필요하며, `NEIS_API_KEY`는 환경 변수 또는
-보안 프롬프트로 입력받습니다.
+보안 프롬프트로 입력받습니다. 리소스 suffix를 조회할 수 있도록 Aspire 배포의
+Container Apps environment, Log Analytics workspace 또는 Container Registry가
+대상 리소스 그룹에 이미 있어야 합니다.
 
 ```bash
 ./scripts/aspire-pipeline-config.sh

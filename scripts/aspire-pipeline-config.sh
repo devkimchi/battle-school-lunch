@@ -94,37 +94,37 @@ fi
 az account set --subscription "$SUBSCRIPTION_ID"
 TENANT_ID="$(az account show --query tenantId --output tsv)"
 
-az group create \
-  --name "$AZURE_RESOURCE_GROUP" \
-  --location "$AZURE_LOCATION" \
-  --subscription "$SUBSCRIPTION_ID" \
-  --output none
+if [[ "$(az group exists --name "$AZURE_RESOURCE_GROUP")" != "true" ]]; then
+  echo "Resource group '$AZURE_RESOURCE_GROUP' does not exist. Deploy the Aspire app first." >&2
+  exit 1
+fi
 
 if [[ -z "$APP_NAME" ]]; then
-  token_template="$(mktemp)"
-  trap 'rm -f "$token_template"' EXIT
-  cat >"$token_template" <<'JSON'
-{
-  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-  "contentVersion": "1.0.0.0",
-  "resources": [],
-  "outputs": {
-    "resourceSuffix": {
-      "type": "string",
-      "value": "[uniqueString(resourceGroup().id)]"
-    }
-  }
-}
-JSON
+  RESOURCE_SUFFIX=""
+  for resource_type in \
+    Microsoft.App/managedEnvironments \
+    Microsoft.OperationalInsights/workspaces \
+    Microsoft.ContainerRegistry/registries; do
+    resource_names="$(az resource list \
+      --resource-group "$AZURE_RESOURCE_GROUP" \
+      --resource-type "$resource_type" \
+      --query '[].name' \
+      --output tsv)"
 
-  RESOURCE_SUFFIX="$(az deployment group create \
-    --name aspire-pipeline-config-token \
-    --resource-group "$AZURE_RESOURCE_GROUP" \
-    --template-file "$token_template" \
-    --query properties.outputs.resourceSuffix.value \
-    --output tsv)"
-  rm -f "$token_template"
-  trap - EXIT
+    while IFS= read -r resource_name; do
+      if [[ "$resource_name" =~ ([a-z0-9]{13})$ ]]; then
+        RESOURCE_SUFFIX="${BASH_REMATCH[1]}"
+        break
+      fi
+    done <<<"$resource_names"
+
+    [[ -n "$RESOURCE_SUFFIX" ]] && break
+  done
+
+  if [[ -z "$RESOURCE_SUFFIX" ]]; then
+    echo "Could not find an Aspire resource suffix in '$AZURE_RESOURCE_GROUP'." >&2
+    exit 1
+  fi
 
   APP_NAME="spn-${AZURE_RESOURCE_GROUP#rg-}-$RESOURCE_SUFFIX"
 fi

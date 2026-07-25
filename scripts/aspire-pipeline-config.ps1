@@ -89,40 +89,42 @@ if ([string]::IsNullOrWhiteSpace($SubscriptionId)) {
 $null = Invoke-NativeText az @("account", "set", "--subscription", $SubscriptionId)
 $TenantId = Invoke-NativeText az @("account", "show", "--query", "tenantId", "--output", "tsv")
 
-$null = Invoke-NativeText az @(
-    "group", "create",
-    "--name", $ResourceGroup,
-    "--location", $Location,
-    "--subscription", $SubscriptionId,
-    "--output", "none"
-)
+$groupExists = Invoke-NativeText az @("group", "exists", "--name", $ResourceGroup)
+if ($groupExists -ne "true") {
+    throw "Resource group '$ResourceGroup' does not exist. Deploy the Aspire app first."
+}
 
 if ([string]::IsNullOrWhiteSpace($AppName)) {
-    $tokenTemplatePath = Join-Path ([System.IO.Path]::GetTempPath()) "aspire-pipeline-config-$([guid]::NewGuid()).json"
-    $tokenTemplate = @{
-        '$schema'     = "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#"
-        contentVersion = "1.0.0.0"
-        resources      = @()
-        outputs        = @{
-            resourceSuffix = @{
-                type  = "string"
-                value = "[uniqueString(resourceGroup().id)]"
+    $resourceSuffix = $null
+    $resourceTypes = @(
+        "Microsoft.App/managedEnvironments",
+        "Microsoft.OperationalInsights/workspaces",
+        "Microsoft.ContainerRegistry/registries"
+    )
+
+    foreach ($resourceType in $resourceTypes) {
+        $resourceNames = Invoke-NativeText az @(
+            "resource", "list",
+            "--resource-group", $ResourceGroup,
+            "--resource-type", $resourceType,
+            "--query", "[].name",
+            "--output", "tsv"
+        )
+
+        foreach ($resourceName in ($resourceNames -split "\r?\n")) {
+            if ($resourceName -match "([a-z0-9]{13})$") {
+                $resourceSuffix = $Matches[1]
+                break
             }
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($resourceSuffix)) {
+            break
         }
     }
 
-    try {
-        $tokenTemplate | ConvertTo-Json -Depth 5 | Set-Content -Path $tokenTemplatePath -Encoding utf8
-        $resourceSuffix = Invoke-NativeText az @(
-            "deployment", "group", "create",
-            "--name", "aspire-pipeline-config-token",
-            "--resource-group", $ResourceGroup,
-            "--template-file", $tokenTemplatePath,
-            "--query", "properties.outputs.resourceSuffix.value",
-            "--output", "tsv"
-        )
-    } finally {
-        Remove-Item -Path $tokenTemplatePath -Force -ErrorAction SilentlyContinue
+    if ([string]::IsNullOrWhiteSpace($resourceSuffix)) {
+        throw "Could not find an Aspire resource suffix in '$ResourceGroup'."
     }
 
     $resourceName = $ResourceGroup -replace "^rg-", ""
