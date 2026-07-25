@@ -215,13 +215,13 @@ CLI와 GitHub CLI 로그인이 필요하며, `NEIS_API_KEY`는 환경 변수 또
 입력받습니다.
 
 ```bash
-./scripts/setup-azure-deployment.sh \
+./scripts/aspire-pipeline-config.sh \
   --resource-group rg-school-lunch-production \
   --location koreacentral
 ```
 
 ```powershell
-./scripts/setup-azure-deployment.ps1 `
+./scripts/aspire-pipeline-config.ps1 `
   -ResourceGroup rg-school-lunch-production `
   -Location koreacentral
 ```

@@ -13,7 +13,7 @@ APP_NAME=""
 
 usage() {
   cat <<'EOF'
-Usage: scripts/setup-azure-deployment.sh [options]
+Usage: scripts/aspire-pipeline-config.sh [options]
 
 Options:
   --repository OWNER/REPO       GitHub repository (default: current gh repository)
