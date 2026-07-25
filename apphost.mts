@@ -11,6 +11,8 @@ if (existsSync('.env')) {
 
 const builder = await createBuilder();
 
+await builder.addAzureContainerAppEnvironment('aca');
+
 const neisApiKey = await builder.addParameter('neis-api-key', {
   value: process.env.NEIS_API_KEY,
   secret: true,
@@ -29,6 +31,7 @@ await builder
   .withEnvironment('API_URL', apiEndpoint)
   .withReference(api)
   .waitFor(api)
+  .publishAsStaticWebsite({ apiPath: '/api', apiTarget: api })
   .withExternalHttpEndpoints();
 
 await builder.build().run();

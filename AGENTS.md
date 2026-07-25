@@ -31,10 +31,9 @@ OpenAPI 기반 MCP 서버 프로젝트.
 ├── LICENSE       MIT 라이선스
 ├── apphost.mts   Aspire TypeScript AppHost (api + web)
 ├── aspire.config.json Aspire AppHost 설정
-├── azure.yaml    azd 서비스 매핑 (api + web → Azure Container Apps)
+├── azure.yaml    Azure 프로젝트 식별자 (배포 모델은 apphost.mts)
 ├── compose.yaml  Docker Compose: 두 컨테이너 앱 오케스트레이션
 ├── .env.example  환경 변수 템플릿 (NEIS_API_KEY, 선택: WEB_PORT)
-├── infra/        Bicep (Container Apps + ACR + LAW + App Insights)
 └── src/
     ├── api/          FastAPI 백엔드 (Python 3.12+ / uv)
     ├── web/          React 19 + Vite + TypeScript + Tailwind v4 프런트엔드
@@ -74,7 +73,8 @@ OpenAPI 기반 MCP 서버 프로젝트.
 | Node.js | 22+ (24 LTS 권장) | `src/web`, `src/e2e` |
 | npm | 10+ | `src/web`, `src/e2e` |
 | Aspire CLI | 13.4+ | 로컬 풀스택 오케스트레이션 |
-| Docker | 24+ (Compose 플러그인) | Compose / azd (선택) |
+| Azure CLI | latest | Aspire Azure Container Apps 배포 |
+| Docker | 24+ (Compose 플러그인) | Compose / Aspire 이미지 빌드 |
 | NEIS API 키 | — | `src/api`, `src/mcp` 런타임 (실데이터 호출용) |
 
 - NEIS 키는 저장소 루트의 `.env`에 `NEIS_API_KEY=...` 형태로 둡니다.
@@ -134,13 +134,16 @@ aspire stop                     # Aspire AppHost와 리소스 중지
 docker compose up -d --build    # 두 서비스 컨테이너 기동 (web만 외부 노출)
 docker compose down             # 중지 및 제거
 
-azd auth login
-azd env new <name>
-azd env set NEIS_API_KEY <key>  # 선택: 생략하면 azd up에서 안전하게 입력
-azd up                          # 프로비저닝 + 빌드 + 푸시 + 배포
-azd deploy                      # 코드 변경 후 재배포 (인프라 변경 없음)
-azd down --purge                # 모든 리소스 삭제
+az login
+aspire publish --list-steps --non-interactive
+aspire deploy --list-steps --non-interactive
+Azure__SubscriptionId=<id> Azure__Location=<region> Azure__ResourceGroup=<group> \
+  aspire deploy --environment production --non-interactive
+aspire destroy --environment production
 ```
+
+배포 전 `Parameters__neis_api_key`는 CI secret 또는 현재 프로세스 환경으로 별도
+주입합니다. 실제 값을 문서, 명령 기록, 로그에 넣지 마세요.
 
 ## 5. 코딩 규칙 및 패턴
 
@@ -154,6 +157,9 @@ azd down --purge                # 모든 리소스 삭제
   마세요. `web`은 `api`를 참조하고 준비 상태를 기다리며, API URL은
   `withEnvironment("API_URL", api.getEndpoint("http"))`로 주입합니다.
   `NEIS_API_KEY`는 secret parameter로 모델링해 `api` 환경 변수로 전달합니다.
+  Azure 배포에서는 `aca` Container Apps environment와
+  `publishAsStaticWebsite({ apiPath: "/api", apiTarget: api })` 생산 모델을
+  유지합니다. `web`만 external endpoint이고 `api`는 internal입니다.
 - **MCP 서버**: `src/openapi.json`의 `operationId`, 설명, 파라미터와 필수 여부를
   도구 스키마에 반영합니다. 동일한 스키마를 코드에 중복 정의하지 마세요.
   `NEIS_API_KEY`는 환경 변수로만 주입하고, NEIS 오류는 코드와 메시지가 포함된
@@ -192,13 +198,14 @@ azd down --purge                # 모든 리소스 삭제
 
 ## 8. 주의사항 / 가드레일
 
-- **시크릿**: `.env`는 절대 커밋하지 않습니다. 키는 로컬 `.env` 또는
-  `azd env set`으로만 주입합니다.
+- **시크릿**: `.env`는 절대 커밋하지 않습니다. 키는 로컬 `.env` 또는 배포
+  프로세스의 `Parameters__neis_api_key` 환경 변수로만 주입합니다.
 - **의존성**: 백엔드와 MCP 서버는 각 패키지 디렉터리에서 `uv add`로 추가해
   `uv.lock`을 갱신하고, 프런트엔드는 `npm`으로 추가해 `package-lock.json`을
   갱신합니다. 락 파일을 수동 편집하지 마세요.
-- **azd 서비스 동기화**: `azure.yaml`의 서비스 이름(`api`, `web`)과 Bicep의
-  `azd-service-name` 태그를 항상 일치시키세요.
+- **Azure 배포 원본**: `apphost.mts`가 Azure 토폴로지의 단일 원본입니다.
+  `azure.yaml`에 `api`/`web` 서비스를 추가하거나 별도 Bicep 배포를 병행하지
+  마세요. 현재 `azd`는 TypeScript AppHost를 직접 가져오지 못합니다.
 - **컨테이너 보안 강화 유지**: `compose.yaml`과 각 Dockerfile은 non-root, `cap_drop: ALL`,
   `no-new-privileges`, read-only 루트 파일시스템을 사용합니다. 디버깅 편의를 위해
   이 설정을 약화시키지 마세요.
@@ -206,4 +213,5 @@ azd down --purge                # 모든 리소스 삭제
   `proxy_ssl_server_name on`으로 HTTPS 업스트림에 연결됩니다. 이 설정을 변경할 때
   TLS SNI / 호스트 라우팅이 깨지지 않도록 주의하세요.
 - **CORS**: 허용 오리진은 `src/api/app/config.py`의 `CORS_ORIGINS`로 제어합니다.
-  운영에서는 `infra/`가 자동으로 채웁니다.
+  Azure에서는 public `web`의 YARP가 같은 오리진 `/api`를 internal `api`로
+  프록시하므로 브라우저에 API origin을 별도로 노출하지 않습니다.

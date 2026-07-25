@@ -10,7 +10,7 @@
 Web browser
     │ /api/*
     ▼
-Frontend (React/Vite → nginx)
+Frontend (React/Vite → nginx or YARP)
     │ /api/*
     ▼
 Backend (FastAPI)
@@ -30,6 +30,10 @@ NEIS Open API
 - 프론트엔드는 NEIS를 직접 호출하지 않고 백엔드의 `/api/*`만 사용한다.
 - MCP 서버는 `src/openapi.json`에서 도구 스키마를 구성하고 NEIS를 직접 호출한다.
 - 백엔드와 MCP 서버는 `NEIS_API_KEY`를 서버 환경 변수로만 주입받는다.
+- 로컬에서는 TypeScript Aspire AppHost가 `api`와 `web`을 오케스트레이션한다.
+- Azure에서는 AppHost가 하나의 Container Apps Environment에 internal `api`와
+  public `web`을 배포하며, `web`의 YARP가 `/api`를 내부 서비스로 프록시한다.
+- Azure 배포 토폴로지의 단일 원본은 `apphost.mts`이며 `aspire deploy`로 적용한다.
 
 ---
 

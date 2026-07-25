@@ -9,12 +9,11 @@
 ├── PRD.md       제품 요구사항
 ├── TRD.md       기술 요구사항
 ├── .devcontainer/ GitHub Codespaces 개발 환경
-├── apphost.mts  Aspire 로컬 오케스트레이션 (api + web)
+├── apphost.mts  Aspire 오케스트레이션·Azure 배포 모델 (api + web)
 ├── aspire.config.json Aspire AppHost 설정
-├── azure.yaml   azd 서비스 매핑
+├── azure.yaml   Azure 프로젝트 식별자 (배포 모델은 apphost.mts)
 ├── compose.yaml Docker Compose 오케스트레이션
 ├── .env.example 환경 변수 템플릿
-├── infra/       Azure Container Apps용 Bicep
 └── src/
     ├── api/         FastAPI 백엔드 (Python 3.12+ / uv)
     ├── web/         React + Vite + TypeScript 프런트엔드 (nginx 운영 서빙)
@@ -46,15 +45,15 @@ MCP 서버는 `src/openapi.json`에서 `getSchoolInfo`와
 | NEIS API 키 | — | `src/api`, `src/mcp` 런타임 (실데이터 호출용) |
 
 네이티브 개발 시 NEIS 키는 저장소 루트의 `.env`에 `NEIS_API_KEY=...`
-형태로 넣습니다 (api는 pydantic-settings를 통해 자동 로드하고, Docker Compose
-및 azd도 동일한 변수를 읽습니다). MCP 서버도 같은 환경 변수만 사용하며 도구
+형태로 넣습니다 (api는 pydantic-settings를 통해 자동 로드하고, Aspire와
+Docker Compose도 동일한 변수를 읽습니다). MCP 서버도 같은 환경 변수만 사용하며 도구
 인자로 키를 노출하지 않습니다. 테스트 스위트는 키가 **필요 없습니다** —
 적절한 경계에서 NEIS / `/api/*`를 모킹합니다.
 
 ### GitHub Codespaces
 
 저장소의 **Code → Codespaces → Create codespace**를 선택하면 `.devcontainer/` 설정으로
-Python 3.12, Node.js 24, uv, Docker Compose, Azure CLI, Bicep 및 azd가 자동 설치됩니다.
+Python 3.12, Node.js 24, uv, Docker Compose 및 Azure CLI가 자동 설치됩니다.
 API·웹·E2E 의존성과 Playwright Chromium도 최초 생성 시 준비됩니다.
 
 실제 NEIS 데이터를 조회하려면 저장소 또는 사용자 Codespaces 시크릿에
@@ -161,67 +160,52 @@ docker compose down -v           # 네트워크까지 제거
 - `NEIS_API_KEY`는 필수입니다 — 설정되지 않으면 Compose가 명확한 에러와 함께
   즉시 실패합니다.
 
-### 2.4 `azd up`을 통한 Azure Container Apps 배포
+### 2.4 Aspire를 통한 Azure Container Apps 배포
 
-`infra/` 아래의 Bicep과 기존 Dockerfile을 사용해 두 앱을 Azure Container Apps
-에 프로비저닝 및 배포합니다. 프런트엔드(`web`)만 퍼블릭 ingress이고, 백엔드
-(`api`)는 internal-only이며 환경의 프라이빗 DNS를 통해 `web`에서만 접근
-가능합니다.
+`apphost.mts`가 Azure Container Apps 환경과 배포 토폴로지의 단일 원본입니다.
+`api`는 internal ingress를 사용하는 Container App으로 배포되고,
+`web`은 정적 Vite 빌드를 YARP 컨테이너로 제공하는 public ingress가 됩니다.
+YARP가 같은 오리진의 `/api` 요청을 내부 `api` 리소스로 전달합니다.
 
-프로비저닝되는 리소스:
+Aspire는 Container Apps Environment, Azure Container Registry, managed identity,
+Aspire dashboard와 두 Container App을 프로비저닝하고, 이미지를 빌드·푸시합니다.
+`neis-api-key` secret parameter는 `api`의 `NEIS_API_KEY` 환경 변수로만 전달됩니다.
 
-- 리소스 그룹 (`rg-<env-name>`)
-- Log Analytics + Application Insights
-- User-Assigned Managed Identity (두 앱이 ACR에서 이미지를 풀할 때 사용)
-- Azure Container Registry (admin 비활성화, UAMI에 `AcrPull` 부여)
-- Azure Container Apps Environment (Consumption, 로그는 Log Analytics로 전송)
-- `api` Container App — **internal** ingress, 포트 8000, NEIS_API_KEY는 시크릿
-- `web` Container App — **external** ingress, 포트 8080, `API_UPSTREAM`은 `https://<api-internal-fqdn>` 으로 연결
-
-사전 준비: [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI (`azd`)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), Docker.
+사전 준비: [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli),
+[Aspire CLI](https://aspire.dev/get-started/install-cli/), Docker.
 
 ```bash
-# 환경별 일회성 설정
-azd auth login
-azd env new <random-string>       # 임의의 이름; 리소스 그룹 접미사를 결정함
-azd env set NEIS_API_KEY <key>    # 선택: 비대화형 실행 시 미리 설정
+az login
 
-# 프로비저닝 + 빌드 + 푸시 + 배포
-azd up                            # 키가 없으면 마스킹 입력 후 환경에 저장
+# 적용 전에 배포 파이프라인 확인
+aspire publish --list-steps --non-interactive
+aspire deploy --list-steps --non-interactive
+
+# 환경별 비시크릿 설정
+export Azure__SubscriptionId="<subscription-id>"
+export Azure__Location="koreacentral"
+export Azure__ResourceGroup="<resource-group>"
+
+# Parameters__neis_api_key는 CI secret 또는 현재 셸 환경으로 별도 주입
+aspire deploy --environment production --non-interactive
 ```
 
-`azd up`은 리전을 선택하거나(또는 `AZURE_LOCATION`을 설정할 수 있음) 인프라를
-프로비저닝하고, 두 Docker 이미지를 로컬에서 빌드해 프로비저닝된 ACR로 푸시한
-뒤 Container Apps를 새 이미지로 업데이트합니다. 실행 마지막에 웹 URL이
-`SERVICE_WEB_URI`로 출력됩니다.
+AppHost parameter 이름의 `-`는 환경 변수에서 `_`로 바뀌므로
+`neis-api-key`는 `Parameters__neis_api_key`로 제공합니다. 시크릿 값은 저장소나
+명령 기록에 넣지 말고 CI secret store 또는 현재 프로세스 환경으로 주입하세요.
 
-`NEIS_API_KEY`가 현재 azd 환경에 없으면 `preprovision` 훅이 마스킹된 입력을
-요청하고 `.azure/<환경명>/.env`에 저장합니다. 이후 같은 환경의 배포에서는 저장된
-값을 재사용합니다. CI처럼 비대화형으로 실행할 때는 먼저
-`azd env set NEIS_API_KEY <key>`로 설정하세요.
-
-유용한 후속 명령어:
+배포 파일을 적용하지 않고 검토하려면 `aspire publish -o <output-dir>
+--non-interactive`를 사용합니다. 이 산출물은 검토·인계용이며, 실제 배포는
+산출물 디렉터리를 입력으로 받지 않고 AppHost에서 다시 해석합니다.
 
 ```bash
-azd deploy            # 코드 변경 후 재빌드 + 푸시 + 재배포 (인프라 변경 없음)
-azd provision         # bicep만 적용 (이미지 푸시 없음)
-azd show              # 엔드포인트와 리소스 참조를 표시
-azd monitor --live    # App Insights 실시간 로그
-azd down --purge      # 프로비저닝된 모든 리소스 삭제
+aspire deploy --environment production    # 이후 변경 재배포
+aspire destroy --environment production   # Aspire가 만든 Azure 리소스 제거
 ```
 
-참고 사항:
-
-- 각 Container App의 `azd-service-name` 태그(`api`, `web`)가 azd가 어떤 앱을
-  업데이트할지 식별하는 데 사용됩니다. `azure.yaml`의 서비스 이름과 Bicep
-  태그를 동기화해 유지하세요.
-- 앱 간 연결은 `infra/resources.bicep`에서 결정적으로 계산됩니다(두 Container
-  App 사이에 순환 참조 없음): `web`은 `api`의 internal FQDN을 알고 있고,
-  `api`의 `CORS_ORIGINS`에는 `web`의 퍼블릭 URL이 미리 채워져 있습니다.
-- 운영 환경에서 Web → API 통신은 nginx → `https://<api>.internal.<env-domain>`
-  로 이루어지며 (HTTPS, 환경 엣지에서 종단), 업스트림의 호스트 헤더 라우팅과
-  TLS SNI가 모두 동작하도록 nginx 설정에서 `proxy_set_header Host $proxy_host`
-  와 `proxy_ssl_server_name on`을 적용합니다.
+`azure.yaml`에는 프로젝트 식별자만 남아 있습니다. 현재 `azd`는 TypeScript
+AppHost를 직접 가져오지 못하므로 `azd up`용 서비스나 별도 Bicep 토폴로지를
+병행하지 않습니다.
 
 ## 3. 앱 테스트
 
@@ -306,13 +290,11 @@ school-lunch/
 ├── TRD.md               기술 요구사항
 ├── CONTRIBUTING.md      기여 가이드
 ├── SECURITY.md          취약점 신고 정책
-├── azure.yaml           azd 서비스 매핑 (api + web → containerapp)
+├── apphost.mts          Aspire 로컬 오케스트레이션·Azure 배포 모델
+├── aspire.config.json   Aspire AppHost 설정·통합 패키지
+├── azure.yaml           Azure 프로젝트 식별자
 ├── compose.yaml         Docker Compose: api + web 오케스트레이션
 ├── .env.example         환경 변수 템플릿 (NEIS_API_KEY, WEB_PORT)
-├── infra/               `azd up`에서 사용하는 Bicep
-│   ├── main.bicep
-│   ├── main.parameters.json
-│   └── resources.bicep
 └── src/
     ├── openapi.json     백엔드·MCP 도구의 단일 NEIS Open API 명세
     ├── api/

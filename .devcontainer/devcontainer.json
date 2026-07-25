@@ -14,11 +14,8 @@
       "dockerDashComposeVersion": "v2"
     },
     "ghcr.io/devcontainers/features/azure-cli:1": {
-      "version": "latest",
-      "installBicep": true,
-      "bicepVersion": "latest"
-    },
-    "ghcr.io/azure/azure-dev/azd:latest": {}
+      "version": "latest"
+    }
   },
   "containerEnv": {
     "UV_LINK_MODE": "copy"
@@ -52,7 +49,6 @@
       "extensions": [
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
-        "ms-azuretools.vscode-bicep",
         "ms-azuretools.vscode-docker",
         "ms-playwright.playwright",
         "ms-python.python",
