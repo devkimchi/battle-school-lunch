@@ -4,7 +4,7 @@ set -euo pipefail
 
 AZURE_LOCATION="${AZURE_LOCATION:-koreacentral}"
 AZURE_RESOURCE_GROUP="${AZURE_RESOURCE_GROUP:-rg-school-lunch-production}"
-AZURE_DEPLOYMENT="${AZURE_DEPLOYMENT:-true}"
+AZURE_DEPLOYMENT=false
 ENVIRONMENT_NAME="${ENVIRONMENT_NAME:-production}"
 FEDERATED_CREDENTIAL_NAME="${FEDERATED_CREDENTIAL_NAME:-github-production}"
 REPOSITORY="${GITHUB_REPOSITORY:-}"
@@ -22,6 +22,7 @@ Options:
   --location LOCATION           Azure location
   --app-name NAME               Microsoft Entra application display name
   --environment NAME            GitHub environment used by the workflow
+  --enable-deployment           Set AZURE_DEPLOYMENT to true
   --help                        Show this help
 
 Set NEIS_API_KEY in the environment or enter it at the secure prompt.
@@ -53,6 +54,10 @@ while (($# > 0)); do
     --environment)
       ENVIRONMENT_NAME="$2"
       shift 2
+      ;;
+    --enable-deployment)
+      AZURE_DEPLOYMENT=true
+      shift
       ;;
     --help)
       usage

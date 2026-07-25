@@ -8,7 +8,8 @@ param(
     [string]$Location = $(if ($env:AZURE_LOCATION) { $env:AZURE_LOCATION } else { "koreacentral" }),
     [string]$AppName,
     [string]$EnvironmentName = "production",
-    [string]$FederatedCredentialName = "github-production"
+    [string]$FederatedCredentialName = "github-production",
+    [switch]$EnableDeployment
 )
 
 $ErrorActionPreference = "Stop"
@@ -221,7 +222,8 @@ Set-GitHubSecret -Name "NEIS_API_KEY" -Value $NeisApiKey -TargetRepository $Repo
 $null = Invoke-NativeText gh @("variable", "set", "AZURE_CLIENT_ID", "--body", $AppId, "--repo", $Repository)
 $null = Invoke-NativeText gh @("variable", "set", "AZURE_TENANT_ID", "--body", $TenantId, "--repo", $Repository)
 $null = Invoke-NativeText gh @("variable", "set", "AZURE_SUBSCRIPTION_ID", "--body", $SubscriptionId, "--repo", $Repository)
-$null = Invoke-NativeText gh @("variable", "set", "AZURE_DEPLOYMENT", "--body", "true", "--repo", $Repository)
+$deploymentEnabled = $EnableDeployment.IsPresent.ToString().ToLowerInvariant()
+$null = Invoke-NativeText gh @("variable", "set", "AZURE_DEPLOYMENT", "--body", $deploymentEnabled, "--repo", $Repository)
 $null = Invoke-NativeText gh @("variable", "set", "AZURE_LOCATION", "--body", $Location, "--repo", $Repository)
 $null = Invoke-NativeText gh @("variable", "set", "AZURE_RESOURCE_GROUP", "--body", $ResourceGroup, "--repo", $Repository)
 

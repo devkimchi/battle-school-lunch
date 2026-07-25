@@ -217,13 +217,15 @@ GitHub Actions용 Entra 앱, OIDC federated credential, Azure RBAC, 저장소 va
 ```bash
 ./scripts/aspire-pipeline-config.sh \
   --resource-group rg-school-lunch-production \
-  --location koreacentral
+  --location koreacentral \
+  --enable-deployment
 ```
 
 ```powershell
 ./scripts/aspire-pipeline-config.ps1 `
   -ResourceGroup rg-school-lunch-production `
-  -Location koreacentral
+  -Location koreacentral `
+  -EnableDeployment
 ```
 
 ## 3. 앱 테스트
