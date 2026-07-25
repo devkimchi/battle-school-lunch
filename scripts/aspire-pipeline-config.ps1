@@ -4,8 +4,16 @@
 param(
     [string]$Repository = $env:GITHUB_REPOSITORY,
     [string]$SubscriptionId = $env:AZURE_SUBSCRIPTION_ID,
-    [string]$ResourceGroup = $(if ($env:AZURE_RESOURCE_GROUP) { $env:AZURE_RESOURCE_GROUP } else { "rg-school-lunch-production" }),
-    [string]$Location = $(if ($env:AZURE_LOCATION) { $env:AZURE_LOCATION } else { "koreacentral" }),
+    [string]$ResourceGroup = $(
+        if ($env:AZURE_RESOURCE_GROUP) { $env:AZURE_RESOURCE_GROUP }
+        elseif ($env:Azure__ResourceGroup) { $env:Azure__ResourceGroup }
+        else { "rg-school-lunch" }
+    ),
+    [string]$Location = $(
+        if ($env:AZURE_LOCATION) { $env:AZURE_LOCATION }
+        elseif ($env:Azure__Location) { $env:Azure__Location }
+        else { "koreacentral" }
+    ),
     [string]$AppName,
     [string]$EnvironmentName = "production",
     [string]$FederatedCredentialName = "github-production",

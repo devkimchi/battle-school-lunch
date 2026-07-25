@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-AZURE_LOCATION="${AZURE_LOCATION:-koreacentral}"
-AZURE_RESOURCE_GROUP="${AZURE_RESOURCE_GROUP:-rg-school-lunch-production}"
+AZURE_LOCATION="${AZURE_LOCATION:-${Azure__Location:-koreacentral}}"
+AZURE_RESOURCE_GROUP="${AZURE_RESOURCE_GROUP:-${Azure__ResourceGroup:-rg-school-lunch}}"
 AZURE_DEPLOYMENT=false
 ENVIRONMENT_NAME="${ENVIRONMENT_NAME:-production}"
 FEDERATED_CREDENTIAL_NAME="${FEDERATED_CREDENTIAL_NAME:-github-production}"

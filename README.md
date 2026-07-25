@@ -216,6 +216,10 @@ GitHub Actions용 Entra 앱, OIDC federated credential, Azure RBAC, 저장소 va
 Container Apps environment, Log Analytics workspace 또는 Container Registry가
 대상 리소스 그룹에 이미 있어야 합니다.
 
+리소스 그룹은 `AZURE_RESOURCE_GROUP`, `Azure__ResourceGroup`,
+`rg-school-lunch` 순서로 선택하고, 위치는 `AZURE_LOCATION`,
+`Azure__Location`, `koreacentral` 순서로 선택합니다.
+
 ```bash
 ./scripts/aspire-pipeline-config.sh
 ```
