@@ -25,7 +25,7 @@
   },
   "secrets": {
     "NEIS_API_KEY": {
-      "description": "NEIS Open API key used by the FastAPI backend and Docker Compose."
+      "description": "NEIS Open API key injected into the FastAPI API by Aspire or Docker Compose."
     }
   },
   "forwardPorts": [5173, 8000, 8080, 4173],
