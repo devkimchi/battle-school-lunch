@@ -8,8 +8,9 @@
   },
   "scripts": {
     "aspire:lint": "eslint apphost.mts",
+    "aspire:restore": "aspire restore --non-interactive",
     "aspire:start": "aspire run",
-    "aspire:build": "tsc -p tsconfig.apphost.json",
+    "aspire:build": "npm run aspire:restore && tsc -p tsconfig.apphost.json",
     "aspire:dev": "tsc --watch -p tsconfig.apphost.json",
     "lint": "npm run aspire:lint",
     "predev": "npm run aspire:lint",
