@@ -159,6 +159,9 @@ describe("Meal analysis", () => {
     expect(await screen.findAllByRole("button", { name: /번학교/ })).toHaveLength(
       10,
     );
+    expect(
+      screen.queryByText("선택을 마치고 분석을 요청하세요"),
+    ).not.toBeInTheDocument();
     expect(agentMock.loadCandidates).toHaveBeenCalledOnce();
   });
 

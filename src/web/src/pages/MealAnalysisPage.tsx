@@ -1,6 +1,5 @@
 import {
   AlertCircle,
-  Bot,
   CalendarDays,
   LoaderCircle,
   RefreshCw,
@@ -457,6 +456,10 @@ export default function MealAnalysisPage() {
     Boolean(selectedDate) &&
     input.trim().length > 0 &&
     !isRunning;
+  const showConversationStatus =
+    Boolean(submittedPrompt) ||
+    isRunning ||
+    Boolean(currentError && state.candidates.length > 0);
 
   return (
     <div className="mx-auto max-w-5xl space-y-8 px-6 py-8">
@@ -635,36 +638,29 @@ export default function MealAnalysisPage() {
         aria-label="급식 분석 채팅"
         className="overflow-hidden rounded-xl border bg-[var(--color-card)]"
       >
-        <div aria-live="polite" className="min-h-40 space-y-4 p-6">
-          {!submittedPrompt && !isRunning && !state.result ? (
-            <div className="flex flex-col items-center justify-center py-5 text-center">
-              <Bot
-                aria-hidden="true"
-                className="mb-3 size-9 text-[var(--color-muted-foreground)]"
-              />
-              <h2 className="font-semibold">선택을 마치고 분석을 요청하세요</h2>
-              <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">
-                학교와 날짜를 선택하면 요청 문장이 자동으로 입력됩니다.
-              </p>
-            </div>
-          ) : null}
-          {submittedPrompt ? (
-            <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-[var(--color-primary)] px-4 py-3 text-sm text-[var(--color-primary-foreground)]">
-              {submittedPrompt}
-            </div>
-          ) : null}
-          {isRunning && PHASE_LABELS[state.phase] ? (
-            <div role="status" className="flex items-center gap-3 text-sm">
-              <LoaderCircle aria-hidden="true" className="size-5 animate-spin" />
-              {PHASE_LABELS[state.phase]}
-            </div>
-          ) : null}
-          {currentError && state.candidates.length > 0 ? (
-            <ErrorNotice message={currentError} />
-          ) : null}
-        </div>
+        {showConversationStatus ? (
+          <div aria-live="polite" className="space-y-4 p-6">
+            {submittedPrompt ? (
+              <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-[var(--color-primary)] px-4 py-3 text-sm text-[var(--color-primary-foreground)]">
+                {submittedPrompt}
+              </div>
+            ) : null}
+            {isRunning && PHASE_LABELS[state.phase] ? (
+              <div role="status" className="flex items-center gap-3 text-sm">
+                <LoaderCircle aria-hidden="true" className="size-5 animate-spin" />
+                {PHASE_LABELS[state.phase]}
+              </div>
+            ) : null}
+            {currentError && state.candidates.length > 0 ? (
+              <ErrorNotice message={currentError} />
+            ) : null}
+          </div>
+        ) : null}
 
-        <form onSubmit={handleSubmit} className="flex items-end gap-3 border-t p-4">
+        <form
+          onSubmit={handleSubmit}
+          className={`flex items-end gap-3 p-4 ${showConversationStatus ? "border-t" : ""}`}
+        >
           <textarea
             aria-label="분석 질문"
             value={input}
