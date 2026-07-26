@@ -14,9 +14,15 @@ def _find_env_file(start: Path) -> Path | None:
 
 
 class Settings(BaseSettings):
-    foundry_project_endpoint: HttpUrl
+    foundry_project_endpoint: HttpUrl = Field(
+        validation_alias=AliasChoices(
+            "FOUNDRY_PROJECT_URI",
+            "FOUNDRY_PROJECT_ENDPOINT",
+        ),
+    )
     foundry_model_deployment_name: str = Field(
         validation_alias=AliasChoices(
+            "FOUNDRY_MODEL_MODELNAME",
             "FOUNDRY_MODEL_DEPLOYMENT_NAME",
             "FOUNDRY_MODEL_DEPLOYMENT",
         ),

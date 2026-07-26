@@ -22,9 +22,10 @@ context에 포함합니다.
 
 | 이름 | 필수 | 설명 |
 | --- | --- | --- |
-| `FOUNDRY_PROJECT_ENDPOINT` | 예 | Microsoft Foundry project endpoint |
+| `FOUNDRY_PROJECT_ENDPOINT` | 조건부 | 네이티브·Compose Microsoft Foundry project endpoint |
+| `FOUNDRY_PROJECT_URI` | 조건부 | Aspire Foundry project reference가 주입하는 endpoint |
 | `FOUNDRY_MODEL_DEPLOYMENT_NAME` | 조건부 | 네이티브·Compose 채팅 모델 deployment name |
-| `FOUNDRY_MODEL_DEPLOYMENT` | 조건부 | Aspire Foundry reference가 주입하는 deployment name |
+| `FOUNDRY_MODEL_MODELNAME` | 조건부 | Aspire Foundry model reference가 주입하는 deployment name |
 | `MCP_URL` | 아니요 | 기본 `http://127.0.0.1:8001/mcp`; base URL이면 `/mcp` 자동 보완 |
 | `PORT` | 아니요 | 기본 `8002` |
 

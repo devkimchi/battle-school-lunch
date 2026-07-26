@@ -29,6 +29,9 @@ const foundryModel = await foundryProject.addModelDeployment(
   'foundry-model',
   FoundryModels.OpenAI.Gpt5Mini,
 );
+await foundryModel.withProperties(async (deployment) => {
+  await deployment.skuCapacity.set(10);
+});
 
 const neisApiKey = await builder.addParameter('neis-api-key', {
   value: process.env.NEIS_API_KEY,

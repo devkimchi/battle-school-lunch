@@ -31,6 +31,12 @@ from .workflow import build_evaluation_workflow, evaluation_prompt
 logger = logging.getLogger(__name__)
 
 
+class AnalysisWorkflowError(RuntimeError):
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
 class LunchAnalysisAGUIWorkflow(AgentFrameworkWorkflow):
     def __init__(
         self,
@@ -75,6 +81,9 @@ class LunchAnalysisAGUIWorkflow(AgentFrameworkWorkflow):
                 raise LunchDataError("지원하지 않는 분석 요청입니다.")
         except LunchDataError as exc:
             async for event in self._user_error_events(state, "DATA_UNAVAILABLE", str(exc)):
+                yield event
+        except AnalysisWorkflowError as exc:
+            async for event in self._user_error_events(state, exc.code, str(exc)):
                 yield event
         except Exception:
             logger.exception("Unhandled lunch analysis failure")
@@ -168,6 +177,17 @@ class LunchAnalysisAGUIWorkflow(AgentFrameworkWorkflow):
                 yield event
             elif isinstance(event, CustomEvent) and event.name == "workflow_output":
                 result = AnalysisResult.model_validate(event.value)
+            elif isinstance(event, RunErrorEvent):
+                details = event.message.lower()
+                if "rate limit" in details or "429" in details:
+                    raise AnalysisWorkflowError(
+                        "MODEL_RATE_LIMITED",
+                        "AI 모델 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.",
+                    )
+                raise AnalysisWorkflowError(
+                    "MODEL_UNAVAILABLE",
+                    "AI 모델이 분석을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+                )
         if result is None:
             raise RuntimeError("Evaluation workflow completed without an AnalysisResult.")
 

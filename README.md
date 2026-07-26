@@ -61,7 +61,7 @@ Docker Compose도 동일한 변수를 읽습니다). MCP 서버도 같은 환경
 네이티브 또는 Docker Compose 실행에서는 `.env.example`의
 `FOUNDRY_PROJECT_ENDPOINT`와 `FOUNDRY_MODEL_DEPLOYMENT_NAME`도 설정하세요.
 Aspire 실행은 `Aspire.Hosting.Foundry`가 Foundry 프로젝트와
-`gpt-5-mini` deployment를 모델링해 연결 정보를 자동 주입합니다. 두 방식 모두
+10K TPM 용량의 `gpt-5-mini` deployment를 모델링해 연결 정보를 자동 주입합니다. 두 방식 모두
 `DefaultAzureCredential`을 사용하므로 로컬에서는 먼저 `az login`이 필요합니다.
 
 ### GitHub Codespaces

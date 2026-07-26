@@ -351,6 +351,8 @@ NEIS API를 프론트엔드에서 직접 호출하지 않고 백엔드 프록시
 - Judge는 비채점 품질 게이트로 제한해 설명 품질이 급식 자체 점수를 바꾸지 않게 한다.
 - 세 전문 호출을 병렬화해 순차 호출 대비 지연 시간을 줄이는 대신 모델 호출 비용은
   한 분석당 네 번 발생한다.
+- Aspire의 `gpt-5-mini` deployment는 세 전문 호출과 Judge 호출을 수용하도록
+  10K TPM 용량으로 명시한다.
 
 ---
 
@@ -366,8 +368,8 @@ FOUNDRY_MODEL_DEPLOYMENT_NAME=배포_이름
 
 - 미발급 시 `sample` 키로 동작할 수 있으나 페이지와 건수가 제한된다.
 - Foundry 두 변수는 네이티브·Compose 실행용이다. Aspire에서는 Foundry integration
-  resource reference가 `FOUNDRY_PROJECT_ENDPOINT`와
-  `FOUNDRY_MODEL_DEPLOYMENT`를 주입한다.
+  resource reference가 `FOUNDRY_PROJECT_URI`와
+  `FOUNDRY_MODEL_MODELNAME`을 주입한다.
 - `MCP_URL` 기본값은 `http://127.0.0.1:8001/mcp`이며 Aspire에서는 MCP endpoint
   reference를 주입한다. base URL만 주입되면 agent가 `/mcp`를 보완한다.
 - `.env`는 저장소에 커밋하지 않는다.
