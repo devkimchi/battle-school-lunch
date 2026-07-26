@@ -140,5 +140,3 @@ jobs:
           Azure__Location: ${{ vars.AZURE_LOCATION || 'koreacentral' }}
           Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
           Parameters__neis_api_key: ${{ secrets.NEIS_API_KEY }}
-          Parameters__foundry_project_endpoint: ${{ vars.FOUNDRY_PROJECT_ENDPOINT }}
-          Parameters__foundry_model_deployment_name: ${{ vars.FOUNDRY_MODEL_DEPLOYMENT_NAME }}

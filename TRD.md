@@ -251,6 +251,7 @@ src/mcp/
 | 웹·프로토콜 | FastAPI + `agent-framework-ag-ui` |
 | 에이전트 | Microsoft Agent Framework + `FoundryChatClient` |
 | 인증 | `DefaultAzureCredential` (로컬 Azure CLI, Azure 관리 ID) |
+| Aspire 리소스 | `Aspire.Hosting.Foundry` account + project + `gpt-4.1-mini` deployment |
 | 데이터 도구 | `MCPStreamableHTTPTool` (`getSchoolInfo`, `getMealServiceDietInfo`만 허용) |
 | endpoint | `POST /agent` (SSE), `GET /health` |
 
@@ -363,6 +364,9 @@ FOUNDRY_MODEL_DEPLOYMENT_NAME=배포_이름
 ```
 
 - 미발급 시 `sample` 키로 동작할 수 있으나 페이지와 건수가 제한된다.
+- Foundry 두 변수는 네이티브·Compose 실행용이다. Aspire에서는 Foundry integration
+  resource reference가 `FOUNDRY_PROJECT_ENDPOINT`와
+  `FOUNDRY_MODEL_DEPLOYMENT`를 주입한다.
 - `MCP_URL` 기본값은 `http://127.0.0.1:8001/mcp`이며 Aspire에서는 MCP endpoint
   reference를 주입한다. base URL만 주입되면 agent가 `/mcp`를 보완한다.
 - `.env`는 저장소에 커밋하지 않는다.

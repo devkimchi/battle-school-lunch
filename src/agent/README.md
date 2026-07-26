@@ -21,7 +21,8 @@ Microsoft Agent Framework로 두 학교의 같은 날짜 중식을 비교하는 
 | 이름 | 필수 | 설명 |
 | --- | --- | --- |
 | `FOUNDRY_PROJECT_ENDPOINT` | 예 | Microsoft Foundry project endpoint |
-| `FOUNDRY_MODEL_DEPLOYMENT_NAME` | 예 | 채팅 모델 deployment name |
+| `FOUNDRY_MODEL_DEPLOYMENT_NAME` | 조건부 | 네이티브·Compose 채팅 모델 deployment name |
+| `FOUNDRY_MODEL_DEPLOYMENT` | 조건부 | Aspire Foundry reference가 주입하는 deployment name |
 | `MCP_URL` | 아니요 | 기본 `http://127.0.0.1:8001/mcp`; base URL이면 `/mcp` 자동 보완 |
 | `PORT` | 아니요 | 기본 `8002` |
 
@@ -42,8 +43,9 @@ uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8002
 - AG-UI: <http://127.0.0.1:8002/agent>
 - Health: <http://127.0.0.1:8002/health>
 
-저장소 루트의 `npm run dev`를 사용하면 Aspire가 MCP endpoint와 Foundry 설정을
-주입하고 `mcp → agent → web` 순서로 준비 상태를 관리합니다.
+저장소 루트의 `npm run dev`를 사용하면 Aspire Foundry integration이 account,
+project와 `gpt-4.1-mini` deployment를 모델링하고 연결 정보와 추론 역할을 agent에
+주입합니다. Aspire는 `mcp → agent → web` 순서로 준비 상태를 관리합니다.
 
 ## 테스트
 

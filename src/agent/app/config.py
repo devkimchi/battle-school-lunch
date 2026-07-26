@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, HttpUrl
+from pydantic import AliasChoices, Field, HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,7 +15,13 @@ def _find_env_file(start: Path) -> Path | None:
 
 class Settings(BaseSettings):
     foundry_project_endpoint: HttpUrl
-    foundry_model_deployment_name: str = Field(min_length=1)
+    foundry_model_deployment_name: str = Field(
+        validation_alias=AliasChoices(
+            "FOUNDRY_MODEL_DEPLOYMENT_NAME",
+            "FOUNDRY_MODEL_DEPLOYMENT",
+        ),
+        min_length=1,
+    )
     mcp_url: HttpUrl = "http://127.0.0.1:8001/mcp"
     port: int = Field(default=8002, ge=1, le=65535)
 

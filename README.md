@@ -58,9 +58,11 @@ Docker Compose도 동일한 변수를 읽습니다). MCP 서버도 같은 환경
 인자로 키를 노출하지 않습니다. 테스트 스위트는 키가 **필요 없습니다** —
 적절한 경계에서 NEIS, Foundry, MCP, `/api/*`, `/agent`를 모킹합니다.
 
-`.env.example`을 복사해 `FOUNDRY_PROJECT_ENDPOINT`와
-`FOUNDRY_MODEL_DEPLOYMENT_NAME`도 설정하세요. 로컬 Aspire/네이티브 실행은
-`DefaultAzureCredential`을 사용하므로 먼저 `az login`이 필요합니다.
+네이티브 또는 Docker Compose 실행에서는 `.env.example`의
+`FOUNDRY_PROJECT_ENDPOINT`와 `FOUNDRY_MODEL_DEPLOYMENT_NAME`도 설정하세요.
+Aspire 실행은 `Aspire.Hosting.Foundry`가 Foundry 프로젝트와
+`gpt-4.1-mini` deployment를 모델링해 연결 정보를 자동 주입합니다. 두 방식 모두
+`DefaultAzureCredential`을 사용하므로 로컬에서는 먼저 `az login`이 필요합니다.
 
 ### GitHub Codespaces
 
@@ -84,6 +86,8 @@ AppHost·API·웹·E2E 의존성과 Playwright Chromium은 최초 생성 시 준
 루트의 TypeScript AppHost는 API, MCP, agent를 Uvicorn 리소스로, React 앱을
 Vite 리소스로 실행합니다. `mcp → agent → web` 준비 순서를 적용하고 endpoint
 reference로 `/api`와 `/agent` 프록시를 연결합니다.
+AppHost는 Foundry account, project와 `gpt-4.1-mini` model deployment도 리소스로
+모델링하고 agent에 project endpoint, deployment name과 최소 추론 역할을 연결합니다.
 
 ```bash
 npm install
@@ -250,9 +254,6 @@ aspire deploy --list-steps --non-interactive
 export Azure__SubscriptionId="<subscription-id>"
 export Azure__Location="koreacentral"
 export Azure__ResourceGroup="<resource-group>"
-export Parameters__foundry_project_endpoint="<foundry-project-endpoint>"
-export Parameters__foundry_model_deployment_name="<model-deployment-name>"
-
 # Parameters__neis_api_key는 CI secret 또는 현재 셸 환경으로 별도 주입
 aspire deploy --environment production --non-interactive
 ```
@@ -261,9 +262,9 @@ AppHost parameter 이름의 `-`는 환경 변수에서 `_`로 바뀌므로
 `neis-api-key`는 `Parameters__neis_api_key`로 제공합니다. 시크릿 값은 저장소나
 명령 기록에 넣지 말고 CI secret store 또는 현재 프로세스 환경으로 주입하세요.
 
-배포된 agent의 관리 ID에는 대상 Foundry 프로젝트에서 모델 추론이 가능한 최소
-역할(일반적으로 **Azure AI User**)을 별도로 부여해야 합니다. AppHost는 기존
-Foundry 프로젝트를 생성하거나 외부 리소스의 RBAC를 자동 변경하지 않습니다.
+AppHost는 `Aspire.Hosting.Foundry` integration으로 Foundry account, project와
+model deployment를 프로비저닝하고 agent에 `Cognitive Services OpenAI User`
+역할을 할당합니다.
 
 배포 파일을 적용하지 않고 검토하려면 `aspire publish -o <output-dir>
 --non-interactive`를 사용합니다. 이 산출물은 검토·인계용이며, 실제 배포는

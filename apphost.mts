@@ -3,7 +3,7 @@
 
 import { existsSync } from 'node:fs';
 import { loadEnvFile } from 'node:process';
-import { createBuilder } from './.aspire/modules/aspire.mjs';
+import { FoundryModels, FoundryRole, createBuilder } from './.aspire/modules/aspire.mjs';
 
 if (existsSync('.env')) {
   loadEnvFile('.env');
@@ -11,19 +11,18 @@ if (existsSync('.env')) {
 
 const builder = await createBuilder();
 
-await builder.addAzureContainerAppEnvironment('aca');
+const aca = await builder.addAzureContainerAppEnvironment('aca');
+
+const foundry = await builder.addFoundry('foundry');
+const foundryProject = await foundry.addProject('foundry-project');
+const foundryModel = await foundryProject.addModelDeployment(
+  'foundry-model',
+  FoundryModels.OpenAI.Gpt41Mini,
+);
 
 const neisApiKey = await builder.addParameter('neis-api-key', {
   value: process.env.NEIS_API_KEY,
   secret: true,
-});
-
-const foundryProjectEndpoint = await builder.addParameter('foundry-project-endpoint', {
-  value: process.env.FOUNDRY_PROJECT_ENDPOINT,
-});
-
-const foundryModelDeploymentName = await builder.addParameter('foundry-model-deployment-name', {
-  value: process.env.FOUNDRY_MODEL_DEPLOYMENT_NAME,
 });
 
 const api = await builder
@@ -37,7 +36,8 @@ const api = await builder
       });
   })
   .withEnvironment('NEIS_API_KEY', neisApiKey)
-  .withHttpHealthCheck({ path: '/api/health' });
+  .withHttpHealthCheck({ path: '/api/health' })
+  .withComputeEnvironment(aca);
 
 const apiEndpoint = api.getEndpoint('http');
 
@@ -52,7 +52,8 @@ const mcp = await builder
       });
   })
   .withEnvironment('NEIS_API_KEY', neisApiKey)
-  .withHttpHealthCheck({ path: '/health' });
+  .withHttpHealthCheck({ path: '/health' })
+  .withComputeEnvironment(aca);
 
 const mcpEndpoint = mcp.getEndpoint('http');
 
@@ -66,12 +67,17 @@ const agent = await builder
         await endpoint.targetPort.set(8000);
       });
   })
-  .withEnvironment('FOUNDRY_PROJECT_ENDPOINT', foundryProjectEndpoint)
-  .withEnvironment('FOUNDRY_MODEL_DEPLOYMENT_NAME', foundryModelDeploymentName)
   .withEnvironment('MCP_URL', mcpEndpoint)
+  .withReference(foundryProject)
+  .withReference(foundryModel)
   .withReference(mcp)
+  .waitFor(foundryProject)
+  .waitFor(foundryModel)
   .waitFor(mcp)
-  .withHttpHealthCheck({ path: '/health' });
+  .withHttpHealthCheck({ path: '/health' })
+  .withComputeEnvironment(aca);
+
+await agent.withFoundryRoleAssignments(foundry, [FoundryRole.CognitiveServicesOpenAIUser]);
 
 const agentEndpoint = agent.getEndpoint('http');
 
@@ -90,6 +96,7 @@ await builder
       await endpoint.targetPort.set(8080);
     });
   })
+  .withComputeEnvironment(aca)
   .withExternalHttpEndpoints();
 
 await builder.build().run();
