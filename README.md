@@ -9,7 +9,8 @@
 ├── PRD.md       제품 요구사항
 ├── TRD.md       기술 요구사항
 ├── .devcontainer/ GitHub Codespaces 개발 환경
-├── apphost.mts  Aspire 오케스트레이션·Azure 배포 모델 (api + mcp + web)
+├── EVALUATION-RUBRIC.md 급식 비교 평가 기준 단일 원본
+├── apphost.mts  Aspire 오케스트레이션·Azure 배포 모델 (api + mcp + agent + web)
 ├── aspire.config.json Aspire AppHost 설정
 ├── compose.yaml Docker Compose 오케스트레이션
 ├── .env.example 환경 변수 템플릿
@@ -17,6 +18,7 @@
     ├── api/         FastAPI 백엔드 (Python 3.12+ / uv)
     ├── web/         React + Vite + TypeScript 프런트엔드 (nginx 운영 서빙)
     ├── mcp/         OpenAPI 기반 MCP 서버 (Python 3.12+ / uv)
+    ├── agent/       Microsoft Agent Framework 멀티에이전트 서비스
     ├── e2e/         Playwright 엔드투엔드 테스트
     └── openapi.json NEIS Open API 스펙
 ```
@@ -27,9 +29,9 @@
 
 웹 앱 상단에는 스크롤 중에도 고정되는 `학교 급식 조회`와 `학교 급식 분석` 탭이
 있습니다. 조회 탭은 학교 검색부터 날짜별 중식 확인까지의 기존 흐름을 제공하고,
-분석 탭(`/analysis`)은 질문 입력과 로컬 사용자 메시지 목록을 제공하는
-프런트엔드 전용 채팅 UI입니다. 현재 분석 질문은 서버로 전송되지 않으며 자동 응답이나
-대화 저장도 제공하지 않습니다.
+분석 탭(`/analysis`)은 무작위 학교 후보 10곳 중 두 곳과 날짜를 선택해 같은 날
+중식을 비교합니다. Nutrition, Health, Menu Quality Agent가 45/30/25 가중치로
+병렬 평가하고 AI Judge가 근거, 개선안과 한계를 종합합니다.
 
 MCP 서버는 `src/openapi.json`에서 `getSchoolInfo`와
 `getMealServiceDietInfo` 도구 스키마를 구성하고, `/mcp`에서 Streamable HTTP
@@ -41,11 +43,12 @@ MCP 서버는 `src/openapi.json`에서 `getSchoolInfo`와
 
 | 도구 | 버전 | 사용 위치 |
 | --- | --- | --- |
-| Python | 3.12+ | `src/api`, `src/mcp` (네이티브 개발) |
-| [`uv`](https://docs.astral.sh/uv/) | latest | `src/api`, `src/mcp` (네이티브 개발) |
+| Python | 3.12+ | `src/api`, `src/mcp`, `src/agent` (네이티브 개발) |
+| [`uv`](https://docs.astral.sh/uv/) | latest | Python 서비스 |
 | Node.js | 22+ (24 LTS 권장) | `src/web`, `src/e2e` (네이티브 개발) |
 | npm | 10+ | `src/web`, `src/e2e` |
-| [Aspire CLI](https://aspire.dev/get-started/install-cli/) | 13.4+ | `api` + `web` 로컬 오케스트레이션 |
+| [Aspire CLI](https://aspire.dev/get-started/install-cli/) | 13.4+ | 전체 스택 로컬 오케스트레이션 |
+| [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) | latest | Foundry 로컬 인증 (`az login`) |
 | Docker | Compose 플러그인 포함 24+ | 컨테이너/Compose 흐름 (선택 사항) |
 | NEIS API 키 | — | `src/api`, `src/mcp` 런타임 (실데이터 호출용) |
 
@@ -53,7 +56,11 @@ MCP 서버는 `src/openapi.json`에서 `getSchoolInfo`와
 형태로 넣습니다 (api는 pydantic-settings를 통해 자동 로드하고, Aspire와
 Docker Compose도 동일한 변수를 읽습니다). MCP 서버도 같은 환경 변수만 사용하며 도구
 인자로 키를 노출하지 않습니다. 테스트 스위트는 키가 **필요 없습니다** —
-적절한 경계에서 NEIS / `/api/*`를 모킹합니다.
+적절한 경계에서 NEIS, Foundry, MCP, `/api/*`, `/agent`를 모킹합니다.
+
+`.env.example`을 복사해 `FOUNDRY_PROJECT_ENDPOINT`와
+`FOUNDRY_MODEL_DEPLOYMENT_NAME`도 설정하세요. 로컬 Aspire/네이티브 실행은
+`DefaultAzureCredential`을 사용하므로 먼저 `az login`이 필요합니다.
 
 ### GitHub Codespaces
 
@@ -68,23 +75,24 @@ AppHost·API·웹·E2E 의존성과 Playwright Chromium은 최초 생성 시 준
 
 ## 2. 로컬에서 앱 실행
 
-세 가지 방법이 있습니다. Aspire로 세 서비스를 함께 실행하는 방법(권장), `uv`와
+세 가지 방법이 있습니다. Aspire로 네 서비스를 함께 실행하는 방법(권장), `uv`와
 `npm`으로 각 앱을 직접 실행하는 방법, Docker Compose로 운영용 컨테이너를
 실행하는 방법입니다.
 
-### 2.1 Aspire (권장, 세 서비스를 함께)
+### 2.1 Aspire (권장, 네 서비스를 함께)
 
-루트의 TypeScript AppHost는 FastAPI와 MCP 서버를 Uvicorn 리소스로, React 앱을
-Vite 리소스로 실행합니다. Aspire가 포트를 동적으로 할당하고 API가 준비된 후 웹을
-시작하며, `API_URL`을 통해 Vite의 `/api` 프록시를 연결합니다.
+루트의 TypeScript AppHost는 API, MCP, agent를 Uvicorn 리소스로, React 앱을
+Vite 리소스로 실행합니다. `mcp → agent → web` 준비 순서를 적용하고 endpoint
+reference로 `/api`와 `/agent` 프록시를 연결합니다.
 
 ```bash
 npm install
+az login
 npm run dev
 ```
 
-Aspire 대시보드에 `api`, `mcp`, `web`의 상태, 로그, 트레이스, 실행 URL이 표시됩니다.
-`src/api`·`src/mcp`의 Python 환경과 `src/web`의 npm 의존성은 각 Aspire 통합이 시작 전에
+Aspire 대시보드에 `api`, `mcp`, `agent`, `web`의 상태, 로그, 트레이스, 실행 URL이 표시됩니다.
+각 Python 환경과 `src/web`의 npm 의존성은 Aspire 통합이 시작 전에
 준비합니다. AppHost는 루트 `.env`의 `NEIS_API_KEY`를 secret parameter로 모델링해
 API와 MCP에 주입하며, 값이 없으면 Aspire가 입력을 요청합니다. MCP는 대시보드의
 동적 URL에 `/mcp`를 붙여 연결합니다. 종료하려면 실행 터미널에서
@@ -118,9 +126,8 @@ npm run dev
 웹 앱 사용 흐름:
 
 - `학교 급식 조회`: 학교 검색 → 날짜 범위 선택(최대 31일) → 날짜별 중식 카드
-- `학교 급식 분석`: 질문을 입력해 현재 페이지의 로컬 메시지 목록에 추가
-- 분석 입력창의 `Enter`: 줄바꿈
-- 분석 입력창의 `Ctrl+Enter` 또는 macOS `Command+Enter`: 메시지 전송
+- `학교 급식 분석`: 후보 10곳 중 두 학교와 지난달~오늘의 날짜 선택 → 자동
+  프롬프트 확인·수동 전송 → 병렬 평가와 Judge 보고서
 
 #### 운영 스타일 프런트엔드 빌드
 
@@ -140,6 +147,20 @@ uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 
 - MCP: <http://127.0.0.1:8001/mcp>
 - Health: <http://127.0.0.1:8001/health>
+
+#### Agent 서비스 (터미널 4)
+
+루트 `.env`의 Foundry 설정과 Azure CLI 로그인을 사용합니다.
+
+```bash
+az login
+cd src/agent
+uv sync --all-groups
+uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8002
+```
+
+- AG-UI: <http://127.0.0.1:8002/agent>
+- Health: <http://127.0.0.1:8002/health>
 
 #### MCP Inspector로 연결
 
@@ -161,22 +182,23 @@ Inspector에서 transport를 `Streamable HTTP`로 선택하고 실행 방식에 
 호출할 수 있습니다. Python SDK 연결 예시는
 [`src/mcp/README.md`](./src/mcp/README.md)를 참고하세요.
 
-### 2.3 Docker Compose (운영 스타일, 세 서비스를 함께)
+### 2.3 Docker Compose (운영 스타일, 네 서비스를 함께)
 
-루트의 `compose.yaml`은 강화된 세 이미지(uv 기반 FastAPI 백엔드와 MCP 서버,
+루트의 `compose.yaml`은 강화된 네 이미지(uv 기반 API, MCP, agent와
 unprivileged nginx로 서빙되는 Vite 빌드 프런트엔드)를 빌드하고 오케스트레이션
 합니다. 웹은 public 앱 진입점이고, MCP는 localhost 전용 진입점입니다.
-프라이빗 네트워크를 통해 웹의 `/api/*`를 백엔드로 리버스 프록시합니다.
+프라이빗 네트워크를 통해 웹의 `/api/*`와 `/agent`를 내부 서비스로 프록시합니다.
 
 사전 준비: Docker 24+ 와 Compose 플러그인(`docker compose ...`).
 
 ```bash
-cp .env.example .env             # 그 다음 편집해서 NEIS_API_KEY 설정
-docker compose up -d --build     # 이미지 빌드 + 세 서비스 기동
+cp .env.example .env             # NEIS와 Foundry 설정 입력
+docker compose up -d --build     # 이미지 빌드 + 네 서비스 기동
 ```
 
 - 앱: <http://localhost:8080> (`.env`에서 `WEB_PORT`를 설정하면 다른 호스트 포트 사용 가능)
 - API (web을 통해 프록시): <http://localhost:8080/api/health>
+- Agent (web을 통해 프록시): <http://localhost:8080/agent>
 - MCP: <http://127.0.0.1:8001/mcp> (`MCP_PORT`로 포트 변경 가능, localhost 전용)
 - `api` 서비스는 호스트에 **노출되지 않습니다** — Compose 네트워크 내부에서만 `http://api:8000`으로 접근 가능합니다.
 
@@ -184,31 +206,33 @@ docker compose up -d --build     # 이미지 빌드 + 세 서비스 기동
 
 ```bash
 docker compose ps                # 서비스 헬스 확인
-docker compose logs -f web api mcp # 로그 tail
+docker compose logs -f web agent api mcp # 로그 tail
 docker compose down              # 컨테이너 중지 및 제거
 docker compose down -v           # 네트워크까지 제거
 ```
 
 `compose.yaml`에 포함된 보안 강화:
 
-- 세 서비스 모두 non-root로 실행되며 `cap_drop: ALL`,
+- 네 서비스 모두 non-root로 실행되며 `cap_drop: ALL`,
   `no-new-privileges`, 그리고 read-only 루트 파일시스템을 사용합니다. 쓰기 가능
   경로(`/tmp`, nginx 런타임 디렉터리, envsubst 출력 디렉터리)는 명시적인
   tmpfs 마운트로만 제공됩니다.
-- `web` 서비스는 `api`가 `healthy`로 보고할 때까지 기다린 후 시작됩니다.
-- `NEIS_API_KEY`는 필수입니다 — 설정되지 않으면 Compose가 명확한 에러와 함께
-  즉시 실패합니다.
+- `agent`는 `mcp`, `web`은 `api`와 `agent`가 `healthy`일 때까지 기다립니다.
+- `NEIS_API_KEY`, Foundry project endpoint와 model deployment name은 필수입니다.
+  Azure 밖의 Compose에서 실제 분석하려면 서비스 주체용 `AZURE_CLIENT_ID`,
+  `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET`도 설정합니다.
 
 ### 2.4 Aspire를 통한 Azure Container Apps 배포
 
 `apphost.mts`가 Azure Container Apps 환경과 배포 토폴로지의 단일 원본입니다.
-`api`와 `mcp`는 internal ingress를 사용하는 Container App으로 배포되고,
+`api`, `mcp`, `agent`는 internal ingress를 사용하는 Container App으로 배포되고,
 `web`은 정적 Vite 빌드를 nginx 컨테이너의 public ingress로 제공합니다.
-Aspire가 주입한 `API_UPSTREAM`을 사용해 nginx가 같은 오리진의 `/api` 요청을
-내부 `api` 리소스로 전달합니다.
+Aspire가 주입한 `API_UPSTREAM`과 `AGENT_UPSTREAM`을 사용해 nginx가 같은 오리진의
+`/api`와 `/agent` 요청을 내부 리소스로 전달합니다. `/agent`는 SSE buffering을
+끄고 긴 read timeout을 사용합니다.
 
 Aspire는 Container Apps Environment, Azure Container Registry, managed identity,
-Aspire dashboard와 세 Container App을 프로비저닝하고, 이미지를 빌드·푸시합니다.
+Aspire dashboard와 네 Container App을 프로비저닝하고, 이미지를 빌드·푸시합니다.
 `neis-api-key` secret parameter는 `api`와 `mcp`의 `NEIS_API_KEY` 환경 변수로만
 전달됩니다. 인증이 구현되기 전까지 MCP ingress는 외부에 공개하지 않습니다.
 
@@ -226,6 +250,8 @@ aspire deploy --list-steps --non-interactive
 export Azure__SubscriptionId="<subscription-id>"
 export Azure__Location="koreacentral"
 export Azure__ResourceGroup="<resource-group>"
+export Parameters__foundry_project_endpoint="<foundry-project-endpoint>"
+export Parameters__foundry_model_deployment_name="<model-deployment-name>"
 
 # Parameters__neis_api_key는 CI secret 또는 현재 셸 환경으로 별도 주입
 aspire deploy --environment production --non-interactive
@@ -234,6 +260,10 @@ aspire deploy --environment production --non-interactive
 AppHost parameter 이름의 `-`는 환경 변수에서 `_`로 바뀌므로
 `neis-api-key`는 `Parameters__neis_api_key`로 제공합니다. 시크릿 값은 저장소나
 명령 기록에 넣지 말고 CI secret store 또는 현재 프로세스 환경으로 주입하세요.
+
+배포된 agent의 관리 ID에는 대상 Foundry 프로젝트에서 모델 추론이 가능한 최소
+역할(일반적으로 **Azure AI User**)을 별도로 부여해야 합니다. AppHost는 기존
+Foundry 프로젝트를 생성하거나 외부 리소스의 RBAC를 자동 변경하지 않습니다.
 
 배포 파일을 적용하지 않고 검토하려면 `aspire publish -o <output-dir>
 --non-interactive`를 사용합니다. 이 산출물은 검토·인계용이며, 실제 배포는
@@ -275,10 +305,11 @@ Container Apps environment, Log Analytics workspace 또는 Container Registry가
 | --- | --- | --- | --- | --- |
 | 단위 / 통합 (API) | `src/api/tests/` | pytest + respx | < 1초 | NEIS HTTP 경계 |
 | 단위 / 통합 (MCP) | `src/mcp/tests/` | pytest + respx + MCP SDK | < 1초 | NEIS HTTP 경계 |
-| 단위 / 통합 (Web) | `src/web/src/**/*.test.*`, `src/web/src/test/integration/` | Vitest + RTL + MSW | ~4초 | `/api/*` (브라우저) |
-| 엔드투엔드 | `src/e2e/tests/` | Playwright (Chromium) | ~5초 | `/api/*` (브라우저, `page.route` 사용) |
+| 단위 / 통합 (Agent) | `src/agent/tests/` | pytest + Agent Framework | ~5초 | MCP·Foundry 경계 |
+| 단위 / 통합 (Web) | `src/web/src/**/*.test.*`, `src/web/src/test/integration/` | Vitest + RTL + MSW | ~4초 | `/api/*`, AG-UI client |
+| 엔드투엔드 | `src/e2e/tests/` | Playwright (Chromium) | ~6초 | `/api/*`, `/agent` (`page.route`) |
 
-### 3.1 백엔드 테스트 (40개)
+### 3.1 백엔드 테스트
 
 ```bash
 cd src/api
@@ -293,7 +324,7 @@ uv run pytest --cov=app         # 커버리지와 함께 실행
 객체, NEIS row 팩토리)를 제공합니다. 어떤 테스트도 실제 NEIS 서비스에 접근하지
 않습니다.
 
-### 3.2 MCP 서버 테스트 (17개)
+### 3.2 MCP 서버 테스트
 
 ```bash
 cd src/mcp
@@ -306,7 +337,18 @@ uv run pytest -m integration
 OpenAPI 도구 스키마, NEIS 인증·기본값·중식 주입, 오류 매핑, MCP tool discovery/call,
 정확한 `/mcp` Streamable HTTP 경로를 검증합니다.
 
-### 3.3 프런트엔드 테스트 (20개)
+### 3.3 Agent 테스트
+
+```bash
+cd src/agent
+uv sync --all-groups
+uv run pytest
+```
+
+실제 NEIS·MCP·Foundry 호출 없이 후보 표본, 중식 preflight, Concurrent 실행,
+점수 불변성, AG-UI 이벤트와 오류 상태를 검증합니다.
+
+### 3.4 프런트엔드 테스트
 
 ```bash
 cd src/web
@@ -316,15 +358,14 @@ npm run test:watch         # watch 모드
 npm run test:coverage      # 커버리지 리포트 (HTML은 ./coverage)
 ```
 
-`src/test/msw/handlers.ts`의 MSW 핸들러가 모든 `/api/*` 호출을 가로채므로
-테스트는 결정적이고 오프라인에서 실행됩니다. 통합 테스트는 학교 검색·급식 조회뿐
-아니라 조회/분석 탭 이동, 로컬 메시지 추가, Enter 줄바꿈과 수정자+Enter 전송도
-검증합니다.
+MSW가 `/api/*`를 가로채고 AG-UI client seam이 분석 스트림을 대체하므로 테스트는
+결정적이고 오프라인에서 실행됩니다. 후보 선택 제한, 날짜, 수동 전송, 진행 상태,
+가중 보고서, 중식 없음과 `RUN_ERROR` 전파를 검증합니다.
 
-### 3.4 엔드투엔드 테스트 (3개)
+### 3.5 엔드투엔드 테스트
 
 E2E 스위트는 `web`의 **운영 Vite 번들**을 대상으로 Chromium에서 실행되며,
-`page.route()`로 `/api/*` 호출을 가로챕니다. FastAPI 백엔드는 실행 중이지
+`page.route()`로 `/api/*`와 AG-UI SSE를 가로챕니다. 서버들은 실행 중이지
 **않아도** 됩니다.
 
 ```bash
@@ -342,18 +383,17 @@ npm run test:ui         # Playwright UI 모드 (디버깅에 매우 유용)
 npm run report          # 최신 HTML 리포트 열기
 ```
 
-### 3.5 전체 실행
+### 3.6 전체 실행
 
 저장소 루트에서:
 
 ```bash
 ( cd src/api  && uv sync --all-groups && uv run pytest ) \
   && ( cd src/mcp  && uv sync --all-groups && uv run pytest ) \
+  && ( cd src/agent && uv sync --all-groups && uv run pytest ) \
   && ( cd src/web  && npm install && npm test ) \
   && ( cd src/e2e  && npm install && npx playwright install chromium && npm test )
 ```
-
-기대 결과: **40 + 17 + 20 + 3 = 80개 테스트 통과**.
 
 ## 4. 디렉터리 구조
 
@@ -369,8 +409,9 @@ school-lunch/
 ├── SECURITY.md          취약점 신고 정책
 ├── apphost.mts          Aspire 로컬 오케스트레이션·Azure 배포 모델
 ├── aspire.config.json   Aspire AppHost 설정·통합 패키지
-├── compose.yaml         Docker Compose: api + mcp + web 오케스트레이션
-├── .env.example         환경 변수 템플릿 (NEIS_API_KEY, MCP_PORT, WEB_PORT)
+├── EVALUATION-RUBRIC.md 분석 평가 기준과 가중치
+├── compose.yaml         Docker Compose: api + mcp + agent + web
+├── .env.example         NEIS·Foundry 환경 변수 템플릿
 └── src/
     ├── openapi.json     백엔드·MCP 도구의 단일 NEIS Open API 명세
     ├── api/
@@ -391,6 +432,11 @@ school-lunch/
     │   ├── Dockerfile
     │   ├── pyproject.toml
     │   └── uv.lock
+    ├── agent/
+    │   ├── app/         AG-UI, MCP 데이터 준비, Concurrent + Judge workflow
+    │   ├── instructions/ 역할별 Markdown 지침
+    │   ├── tests/       pytest 단위·통합 테스트
+    │   └── Dockerfile
     └── e2e/
         ├── tests/       Playwright 시나리오
         ├── support/     Page Object Model
@@ -409,5 +455,9 @@ school-lunch/
   변경하는 경우 양쪽 모두 업데이트해야 합니다.
 - **개발 환경에서 NEIS 키 누락** — `api`와 MCP 서버 런타임에 필요합니다. 테스트는
   필요 없습니다.
+- **분석에서 Azure 인증 실패** — 로컬에서는 `az login`과 Foundry 프로젝트 접근
+  권한을 확인합니다. Azure에서는 agent 관리 ID의 Azure AI User 역할을 확인합니다.
+- **Compose: Foundry 설정 누락** — `.env`의 `FOUNDRY_PROJECT_ENDPOINT`와
+  `FOUNDRY_MODEL_DEPLOYMENT_NAME`을 설정하세요.
 - **Compose: `NEIS_API_KEY is required`** — `.env.example`을 `.env`로 복사한 뒤
   키를 설정하거나, `docker compose up` 전에 쉘에서 export 하세요.
