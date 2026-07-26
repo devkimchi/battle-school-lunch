@@ -168,13 +168,18 @@ for role in Contributor "Role Based Access Control Administrator"; do
   fi
 done
 
-declare -A FEDERATED_SUBJECTS=(
-  ["github-main"]="repo:$REPOSITORY:ref:refs/heads/main"
-  ["github-pr"]="repo:$REPOSITORY:pull_request"
+FEDERATED_CREDENTIAL_NAMES=(
+  "github-main"
+  "github-pr"
+)
+FEDERATED_CREDENTIAL_SUBJECTS=(
+  "repo:$REPOSITORY:ref:refs/heads/main"
+  "repo:$REPOSITORY:pull_request"
 )
 
-for cred_name in "${!FEDERATED_SUBJECTS[@]}"; do
-  cred_subject="${FEDERATED_SUBJECTS["$cred_name"]}"
+for ((i = 0; i < ${#FEDERATED_CREDENTIAL_NAMES[@]}; i++)); do
+  cred_name="${FEDERATED_CREDENTIAL_NAMES[$i]}"
+  cred_subject="${FEDERATED_CREDENTIAL_SUBJECTS[$i]}"
   existing_subject="$(az ad app federated-credential list \
     --id "$APP_ID" \
     --query "[?name=='$cred_name'].subject | [0]" \
@@ -224,8 +229,8 @@ unset NEIS_API_KEY
 echo "Azure deployment identity and GitHub Actions settings configured for $REPOSITORY."
 echo "Entra application client ID: $APP_ID"
 echo "Federated subjects:"
-for cred_name in "${!FEDERATED_SUBJECTS[@]}"; do
-  echo "  $cred_name: ${FEDERATED_SUBJECTS["$cred_name"]}"
+for ((i = 0; i < ${#FEDERATED_CREDENTIAL_NAMES[@]}; i++)); do
+  echo "  ${FEDERATED_CREDENTIAL_NAMES[$i]}: ${FEDERATED_CREDENTIAL_SUBJECTS[$i]}"
 done
 
 if [[ "$AZURE_DEPLOYMENT" == "true" ]]; then
