@@ -49,4 +49,23 @@ describe("Meal analysis chat", () => {
     expect(input).toHaveValue("");
     expect(sendButton).toBeDisabled();
   });
+
+  it("inserts a line break with Enter and sends with modifier+Enter", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { initialEntries: ["/analysis"] });
+
+    const input = screen.getByRole("textbox", { name: "분석 질문" });
+
+    await user.type(input, "첫째 줄{Enter}둘째 줄");
+    expect(input).toHaveValue("첫째 줄\n둘째 줄");
+
+    await user.keyboard("{Control>}{Enter}{/Control}");
+    expect(screen.getByText("첫째 줄 둘째 줄")).toBeInTheDocument();
+    expect(input).toHaveValue("");
+
+    await user.type(input, "다른 질문");
+    await user.keyboard("{Meta>}{Enter}{/Meta}");
+    expect(screen.getByText("다른 질문")).toBeInTheDocument();
+    expect(input).toHaveValue("");
+  });
 });
