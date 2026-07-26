@@ -14,6 +14,12 @@ echo "Installing FastAPI dependencies..."
   uv sync --all-groups --frozen
 )
 
+echo "Installing MCP server dependencies..."
+(
+  cd src/mcp
+  uv sync --all-groups --frozen
+)
+
 echo "Installing web dependencies..."
 npm ci --prefix src/web
 
