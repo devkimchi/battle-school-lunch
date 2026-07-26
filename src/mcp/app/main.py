@@ -11,7 +11,7 @@ from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette.routing import Mount, Route
+from starlette.routing import Route
 from starlette.types import Receive, Scope, Send
 
 from .config import Settings, get_settings
@@ -82,9 +82,6 @@ def create_app(
         stateless=True,
     )
 
-    async def handle_mcp(scope: Scope, receive: Receive, send: Send) -> None:
-        await session_manager.handle_request(scope, receive, send)
-
     @asynccontextmanager
     async def lifespan(application: Starlette) -> AsyncIterator[None]:
         application.state.mcp_server = mcp_server
@@ -98,7 +95,11 @@ def create_app(
     return Starlette(
         routes=[
             Route("/health", endpoint=health),
-            Mount("/mcp", app=handle_mcp),
+            Route(
+                "/mcp",
+                endpoint=StreamableHttpEndpoint(session_manager),
+                methods=["GET", "POST", "DELETE"],
+            ),
         ],
         lifespan=lifespan,
     )
@@ -106,6 +107,14 @@ def create_app(
 
 async def health(_request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok"})
+
+
+class StreamableHttpEndpoint:
+    def __init__(self, session_manager: StreamableHTTPSessionManager) -> None:
+        self._session_manager = session_manager
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        await self._session_manager.handle_request(scope, receive, send)
 
 
 def _to_mcp_tool(operation: ToolOperation) -> types.Tool:

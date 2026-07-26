@@ -40,6 +40,19 @@ const api = await builder
 const apiEndpoint = api.getEndpoint('http');
 
 await builder
+  .addUvicornApp('mcp', './src/mcp', 'app.main:app')
+  .withUv()
+  .publishAsDockerFile(async (container) => {
+    await container
+      .withDockerfile('./src', { dockerfilePath: 'mcp/Dockerfile' })
+      .withEndpointCallback('http', async (endpoint) => {
+        await endpoint.targetPort.set(8000);
+      });
+  })
+  .withEnvironment('NEIS_API_KEY', neisApiKey)
+  .withHttpHealthCheck({ path: '/health' });
+
+await builder
   .addViteApp('web', './src/web')
   .withEnvironment('API_URL', apiEndpoint)
   .withEnvironment('API_UPSTREAM', apiEndpoint)
