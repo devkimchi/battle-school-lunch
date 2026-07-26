@@ -21,7 +21,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 COPY agent/app ./app
 COPY agent/instructions ./instructions
-COPY agent/EVALUATION-RUBRIC.md ./EVALUATION-RUBRIC.md
+COPY agent/.generated/EVALUATION-RUBRIC.md ./EVALUATION-RUBRIC.md
 RUN uv sync --frozen --no-dev
 
 FROM python:${PYTHON_VERSION}-slim-bookworm AS runtime

@@ -257,7 +257,8 @@ src/mcp/
 
 `src/agent/instructions/*.md`는 Nutrition, Health, Menu Quality, Judge 지침을
 코드 밖에서 관리한다. 모든 점수 정의와 가중치의 사람이 읽는 단일 원본은 루트
-`src/agent/EVALUATION-RUBRIC.md`다.
+`EVALUATION-RUBRIC.md`다. AppHost는 실행·배포 모델을 평가하기 전에 이를
+gitignored `src/agent/.generated/` 경로로 복사하고 agent image에 포함한다.
 
 ### 5.2 데이터 준비와 워크플로
 

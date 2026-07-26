@@ -1,13 +1,23 @@
 // Aspire TypeScript AppHost
 // For more information, see: https://aspire.dev
 
-import { existsSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { loadEnvFile } from 'node:process';
+import { fileURLToPath } from 'node:url';
 import { FoundryModels, FoundryRole, createBuilder } from './.aspire/modules/aspire.mjs';
 
 if (existsSync('.env')) {
   loadEnvFile('.env');
 }
+
+const rootDirectory = fileURLToPath(new URL('.', import.meta.url));
+const generatedAgentDirectory = join(rootDirectory, 'src', 'agent', '.generated');
+mkdirSync(generatedAgentDirectory, { recursive: true });
+copyFileSync(
+  join(rootDirectory, 'EVALUATION-RUBRIC.md'),
+  join(generatedAgentDirectory, 'EVALUATION-RUBRIC.md'),
+);
 
 const builder = await createBuilder();
 

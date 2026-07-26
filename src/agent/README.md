@@ -13,8 +13,10 @@ Microsoft Agent Framework로 두 학교의 같은 날짜 중식을 비교하는 
 4. 코드는 `(평점 / 5) × 가중치`로 환산 점수와 100점 총점을 계산합니다.
 5. AI Judge는 점수를 바꾸지 않고 근거, 개선안과 데이터 한계를 종합합니다.
 
-평가 기준은 [`EVALUATION-RUBRIC.md`](./EVALUATION-RUBRIC.md), 역할별
+평가 기준은 루트 [`EVALUATION-RUBRIC.md`](../../EVALUATION-RUBRIC.md), 역할별
 지침은 [`instructions/`](./instructions/)의 Markdown 파일에서 관리합니다.
+Aspire는 실행·배포 준비 시 rubric을 gitignored `.generated/`에 복사해 image build
+context에 포함합니다.
 
 ## 환경 변수
 
