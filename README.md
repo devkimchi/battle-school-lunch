@@ -1,6 +1,6 @@
-# 전국 초중고 급식 정보 조회 앱
+# 전국 초중고 급식 정보 조회 및 분석 앱
 
-전국 초중고 급식 정보 조회 웹 앱과 NEIS OpenAPI 기반 MCP 서버 프로젝트.
+전국 초중고 급식 정보 조회·분석 웹 앱과 NEIS OpenAPI 기반 MCP 서버 프로젝트.
 
 ```text
 /
@@ -24,6 +24,12 @@
 프런트엔드는 `/api/*` 경로를 통해 백엔드와 통신합니다. `npm run dev` 모드에서는
 `http://localhost:8000` 으로 프록시되며, 운영 빌드에서는 프런트엔드와 백엔드가
 같은 오리진 아래 `/api`에서 접근 가능하다고 가정합니다.
+
+웹 앱 상단에는 스크롤 중에도 고정되는 `학교 급식 조회`와 `학교 급식 분석` 탭이
+있습니다. 조회 탭은 학교 검색부터 날짜별 중식 확인까지의 기존 흐름을 제공하고,
+분석 탭(`/analysis`)은 질문 입력과 로컬 사용자 메시지 목록을 제공하는
+프런트엔드 전용 채팅 UI입니다. 현재 분석 질문은 서버로 전송되지 않으며 자동 응답이나
+대화 저장도 제공하지 않습니다.
 
 MCP 서버는 `src/openapi.json`에서 `getSchoolInfo`와
 `getMealServiceDietInfo` 도구 스키마를 구성하고, `/mcp`에서 Streamable HTTP
@@ -108,6 +114,13 @@ npm run dev
 ```
 
 - 앱: <http://localhost:5173> (Vite 개발 서버, `/api`는 `:8000`으로 프록시됨)
+
+웹 앱 사용 흐름:
+
+- `학교 급식 조회`: 학교 검색 → 날짜 범위 선택(최대 31일) → 날짜별 중식 카드
+- `학교 급식 분석`: 질문을 입력해 현재 페이지의 로컬 메시지 목록에 추가
+- 분석 입력창의 `Enter`: 줄바꿈
+- 분석 입력창의 `Ctrl+Enter` 또는 macOS `Command+Enter`: 메시지 전송
 
 #### 운영 스타일 프런트엔드 빌드
 
@@ -293,7 +306,7 @@ uv run pytest -m integration
 OpenAPI 도구 스키마, NEIS 인증·기본값·중식 주입, 오류 매핑, MCP tool discovery/call,
 정확한 `/mcp` Streamable HTTP 경로를 검증합니다.
 
-### 3.3 프런트엔드 테스트 (17개)
+### 3.3 프런트엔드 테스트 (20개)
 
 ```bash
 cd src/web
@@ -304,7 +317,9 @@ npm run test:coverage      # 커버리지 리포트 (HTML은 ./coverage)
 ```
 
 `src/test/msw/handlers.ts`의 MSW 핸들러가 모든 `/api/*` 호출을 가로채므로
-테스트는 결정적이고 오프라인에서 실행됩니다.
+테스트는 결정적이고 오프라인에서 실행됩니다. 통합 테스트는 학교 검색·급식 조회뿐
+아니라 조회/분석 탭 이동, 로컬 메시지 추가, Enter 줄바꿈과 수정자+Enter 전송도
+검증합니다.
 
 ### 3.4 엔드투엔드 테스트 (3개)
 
@@ -338,7 +353,7 @@ npm run report          # 최신 HTML 리포트 열기
   && ( cd src/e2e  && npm install && npx playwright install chromium && npm test )
 ```
 
-기대 결과: **40 + 17 + 17 + 3 = 77개 테스트 통과**.
+기대 결과: **40 + 17 + 20 + 3 = 80개 테스트 통과**.
 
 ## 4. 디렉터리 구조
 
@@ -365,7 +380,7 @@ school-lunch/
     │   ├── pyproject.toml
     │   └── uv.lock
     ├── web/
-    │   ├── src/         페이지, UI 컴포넌트, API 래퍼, Vitest 테스트
+    │   ├── src/         조회·분석 페이지, UI 컴포넌트, API 래퍼, Vitest 테스트
     │   ├── public/      정적 파일
     │   ├── nginx/       운영 nginx 설정
     │   ├── Dockerfile

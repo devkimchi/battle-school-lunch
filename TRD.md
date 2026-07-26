@@ -1,4 +1,4 @@
-# TRD — 급식 정보 조회 웹 앱
+# TRD — 급식 정보 조회 및 분석 웹 앱
 
 > [PRD](./PRD.md)의 제품 요구사항을 구현하기 위한 기술 요구사항 문서. NEIS API 계약은 [`src/openapi.json`](./src/openapi.json)을 단일 명세 원본으로 사용한다.
 
@@ -28,6 +28,7 @@ NEIS Open API
 ```
 
 - 프론트엔드는 NEIS를 직접 호출하지 않고 백엔드의 `/api/*`만 사용한다.
+- 급식 분석 채팅은 현재 프론트엔드 로컬 상태로만 동작하며 백엔드나 MCP 서버를 호출하지 않는다.
 - MCP 서버는 `src/openapi.json`에서 도구 스키마를 구성하고 NEIS를 직접 호출한다.
 - 백엔드와 MCP 서버는 `NEIS_API_KEY`를 서버 환경 변수로만 주입받는다.
 - 로컬에서는 TypeScript Aspire AppHost가 `api`와 `web`을 오케스트레이션한다.
@@ -125,7 +126,7 @@ src/web/
 │   └── vite.svg
 └── src/
     ├── main.tsx          # QueryClientProvider + BrowserRouter
-    ├── App.tsx           # Routes
+    ├── App.tsx           # sticky 상단 탭 + Routes
     ├── index.css         # @import "tailwindcss" + 테마 토큰
     ├── types.ts          # School, Meal
     ├── vite-env.d.ts
@@ -137,12 +138,13 @@ src/web/
     ├── pages/
     │   ├── LandingPage.tsx
     │   ├── DateRangePage.tsx
-    │   └── MealsResultPage.tsx
+    │   ├── MealsResultPage.tsx
+    │   └── MealAnalysisPage.tsx
     └── test/
         ├── setup.ts
         ├── test-utils.tsx
         ├── msw/          # /api/* mock handlers and server
-        └── integration/  # search and meals flows
+        └── integration/  # search, meals, analysis chat flows
 ```
 
 ### 3.3 클라이언트 라우트
@@ -152,8 +154,23 @@ src/web/
 | `/` | LandingPage (학교 검색) |
 | `/school/:schoolCode` | DateRangePage (날짜 범위 선택) |
 | `/school/:schoolCode/meals` | MealsResultPage (날짜별 중식 카드) |
+| `/analysis` | MealAnalysisPage (프론트엔드 전용 분석 채팅) |
 
-### 3.4 Vite 개발 프록시
+`App.tsx`의 공통 셸은 모든 경로 상단에 `학교 급식 조회`와 `학교 급식 분석`
+링크를 표시한다. 현재 경로는 `aria-current="page"`로 식별하며, 내비게이션은
+`position: sticky`, `top: 0`으로 스크롤 중에도 화면 상단에 유지한다.
+
+### 3.4 분석 채팅 UI
+
+- `MealAnalysisPage`는 React 로컬 상태에 사용자 메시지 배열과 현재 입력값을 보관한다.
+- 공백을 제거한 입력이 비어 있으면 전송 버튼을 비활성화하고 폼 제출도 무시한다.
+- 유효한 폼 제출은 사용자 메시지를 목록에 추가하고 입력값을 초기화한다.
+- `textarea`의 일반 `Enter` 기본 동작은 유지해 줄바꿈을 입력한다.
+- `Ctrl+Enter` 또는 `Command+Enter`는 IME 조합 중이 아닐 때
+  `requestSubmit()`으로 전송 버튼과 동일한 폼 검증·제출 경로를 사용한다.
+- 서버 API 호출, 분석 응답 생성, 대화 영속 저장은 구현하지 않는다.
+
+### 3.5 Vite 개발 프록시
 
 ```ts
 server: {
@@ -274,6 +291,14 @@ NEIS API를 프론트엔드에서 직접 호출하지 않고 백엔드 프록시
 - 인증과 NEIS 오류 처리는 공통 HTTP 클라이언트에서 수행한다.
 - 독립 프로세스와 원격 환경에서 연결할 수 있도록 `/mcp` 기반 Streamable HTTP 전송을 사용한다.
 
+### 6.8 프론트엔드 전용 분석 채팅
+
+- 분석 API 계약이 없는 현재 단계에서는 채팅 상호작용과 레이아웃만 먼저 제공한다.
+- 메시지를 로컬 상태로 제한해 존재하지 않는 분석 백엔드에 성공한 것처럼 보이는
+  요청이나 임시 응답을 만들지 않는다.
+- 향후 분석 API를 도입할 때는 `lib/api.ts` 래퍼와 react-query를 통해 연결하고,
+  로딩·오류·스트리밍 상태를 별도 요구사항으로 정의한다.
+
 ---
 
 ## 7. 환경 변수 (Environment)
@@ -347,6 +372,8 @@ Aspire, Docker Compose 연결 방법은 `src/mcp/README.md`에 정리한다.
 19. `mcp-aspire` — Uvicorn 로컬 리소스와 internal ACA Container App 게시 모델
 20. `mcp-tests` — OpenAPI·NEIS·MCP protocol 단위·통합 테스트와 CI
 21. `mcp-docs` — 실행·연결·보안 정책 문서화
+22. `web-analysis-tabs` — sticky 조회·분석 탭과 `/analysis` 라우트
+23. `web-analysis-chat` — 로컬 메시지 채팅 UI와 Enter/수정자+Enter 키보드 동작
 
 ### 9.2 구현 중 해결한 이슈
 
