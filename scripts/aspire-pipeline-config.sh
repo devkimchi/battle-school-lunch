@@ -5,8 +5,6 @@ set -euo pipefail
 AZURE_LOCATION="${AZURE_LOCATION:-${Azure__Location:-koreacentral}}"
 AZURE_RESOURCE_GROUP="${AZURE_RESOURCE_GROUP:-${Azure__ResourceGroup:-rg-school-lunch}}"
 AZURE_DEPLOYMENT=false
-ENVIRONMENT_NAME="${ENVIRONMENT_NAME:-production}"
-FEDERATED_CREDENTIAL_NAME="${FEDERATED_CREDENTIAL_NAME:-github-production}"
 REPOSITORY="${GITHUB_REPOSITORY:-}"
 SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID:-}"
 APP_NAME=""
@@ -21,7 +19,6 @@ Options:
   --resource-group NAME         Azure resource group
   --location LOCATION           Azure location
   --app-name NAME               Entra app name (default: spn-<resource-group>-<ARM suffix>)
-  --environment NAME            GitHub environment used by the workflow
   --enable-deployment           Set AZURE_DEPLOYMENT to true
   --help                        Show this help
 
@@ -49,10 +46,6 @@ while (($# > 0)); do
       ;;
     --app-name)
       APP_NAME="$2"
-      shift 2
-      ;;
-    --environment)
-      ENVIRONMENT_NAME="$2"
       shift 2
       ;;
     --enable-deployment)
@@ -175,39 +168,41 @@ for role in Contributor "Role Based Access Control Administrator"; do
   fi
 done
 
-SUBJECT="repo:$REPOSITORY:environment:$ENVIRONMENT_NAME"
-existing_subject="$(az ad app federated-credential list \
-  --id "$APP_ID" \
-  --query "[?name=='$FEDERATED_CREDENTIAL_NAME'].subject | [0]" \
-  --output tsv)"
+declare -A FEDERATED_SUBJECTS=(
+  ["github-main"]="repo:$REPOSITORY:ref:refs/heads/main"
+  ["github-pr"]="repo:$REPOSITORY:pull_request"
+)
 
-if [[ -n "$existing_subject" && "$existing_subject" != "$SUBJECT" ]]; then
-  echo "Federated credential '$FEDERATED_CREDENTIAL_NAME' already uses '$existing_subject'." >&2
-  exit 1
-fi
-
-if [[ -z "$existing_subject" ]]; then
-  credential_json="$(jq -nc \
-    --arg name "$FEDERATED_CREDENTIAL_NAME" \
-    --arg subject "$SUBJECT" \
-    '{
-      name: $name,
-      issuer: "https://token.actions.githubusercontent.com",
-      subject: $subject,
-      description: "GitHub Actions deployment",
-      audiences: ["api://AzureADTokenExchange"]
-    }')"
-
-  az ad app federated-credential create \
+for cred_name in "${!FEDERATED_SUBJECTS[@]}"; do
+  cred_subject="${FEDERATED_SUBJECTS[$cred_name]}"
+  existing_subject="$(az ad app federated-credential list \
     --id "$APP_ID" \
-    --parameters "$credential_json" \
-    --output none
-fi
+    --query "[?name=='$cred_name'].subject | [0]" \
+    --output tsv)"
 
-gh api \
-  --method PUT \
-  "repos/$REPOSITORY/environments/$ENVIRONMENT_NAME" \
-  --silent
+  if [[ -n "$existing_subject" && "$existing_subject" != "$cred_subject" ]]; then
+    echo "Federated credential '$cred_name' already uses '$existing_subject'." >&2
+    exit 1
+  fi
+
+  if [[ -z "$existing_subject" ]]; then
+    credential_json="$(jq -nc \
+      --arg name "$cred_name" \
+      --arg subject "$cred_subject" \
+      '{
+        name: $name,
+        issuer: "https://token.actions.githubusercontent.com",
+        subject: $subject,
+        description: "GitHub Actions deployment",
+        audiences: ["api://AzureADTokenExchange"]
+      }')"
+
+    az ad app federated-credential create \
+      --id "$APP_ID" \
+      --parameters "$credential_json" \
+      --output none
+  fi
+done
 
 set_secret() {
   local name="$1"
@@ -228,7 +223,10 @@ unset NEIS_API_KEY
 
 echo "Azure deployment identity and GitHub Actions settings configured for $REPOSITORY."
 echo "Entra application client ID: $APP_ID"
-echo "Federated subject: $SUBJECT"
+echo "Federated subjects:"
+for cred_name in "${!FEDERATED_SUBJECTS[@]}"; do
+  echo "  $cred_name: ${FEDERATED_SUBJECTS[$cred_name]}"
+done
 
 if [[ "$AZURE_DEPLOYMENT" == "true" ]]; then
   echo "You can now push your commit to the remote repository to trigger deployment."

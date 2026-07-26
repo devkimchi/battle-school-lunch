@@ -94,8 +94,6 @@ jobs:
     if: ${{ github.event_name == 'push' && vars.AZURE_DEPLOYMENT == 'true' }}
     needs: [api, mcp, web, e2e]
     runs-on: ubuntu-latest
-    environment:
-      name: production
     permissions:
       contents: read
       id-token: write
