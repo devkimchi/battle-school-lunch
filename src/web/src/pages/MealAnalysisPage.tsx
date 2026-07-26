@@ -81,7 +81,7 @@ function isAllowedDate(value: string, min: string, max: string): boolean {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
-type AnalysisStep = 1 | 2 | 3;
+type AnalysisStep = 1 | 2 | 3 | null;
 
 function StepHeader({
   title,
@@ -409,6 +409,12 @@ export default function MealAnalysisPage() {
   useEffect(() => {
     setInput(generatedPrompt);
   }, [generatedPrompt]);
+
+  useEffect(() => {
+    if (state.result) {
+      setActiveStep(null);
+    }
+  }, [state.result]);
 
   useLayoutEffect(() => {
     const textarea = analysisInput.current;

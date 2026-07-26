@@ -268,6 +268,12 @@ describe("Meal analysis", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("87")).toBeInTheDocument();
     expect(screen.getByText("72")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByLabelText("분석 질문")).not.toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole("button", { name: "분석 질문 열기" }),
+    ).toBeInTheDocument();
     expect(agentMock.analyze).toHaveBeenCalledOnce();
   });
 
