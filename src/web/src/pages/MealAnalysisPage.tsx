@@ -490,10 +490,7 @@ export default function MealAnalysisPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-8 px-6 py-8">
       <header>
-        <p className="text-sm font-semibold text-emerald-700">
-          Concurrent Multi-Agent
-        </p>
-        <h1 className="mt-1 text-3xl font-bold">학교 급식 분석</h1>
+        <h1 className="text-3xl font-bold">학교 급식 분석</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-muted-foreground)]">
           무작위 학교 두 곳의 같은 날 중식을 영양 균형 45%, 건강성 30%,
           메뉴 품질 25% 기준으로 비교합니다.
