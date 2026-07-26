@@ -60,7 +60,16 @@ function comparisonPrompt(
   selectedDate: string,
 ): string {
   if (selectedSchools.length !== 2 || !selectedDate) return "";
-  return `${selectedDate} 중식을 기준으로 ${selectedSchools[0].schoolName}과 ${selectedSchools[1].schoolName}의 급식을 비교 분석해 주세요.`;
+  const schoolLabel = (school: SchoolCandidate) =>
+    `${school.schoolName} (${[
+      school.locationName,
+      school.eduOfficeName,
+      `학교 코드 ${school.schoolCode}`,
+    ]
+      .filter(Boolean)
+      .join(" · ")})`;
+
+  return `${selectedDate} 중식을 기준으로 ${schoolLabel(selectedSchools[0])}와 ${schoolLabel(selectedSchools[1])}의 급식을 비교 분석해 주세요.`;
 }
 
 function isAllowedDate(value: string, min: string, max: string): boolean {

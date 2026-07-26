@@ -190,7 +190,7 @@ describe("Meal analysis", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /3번학교/ })).toBeDisabled();
     expect(screen.getByLabelText("분석 질문")).toHaveValue(
-      `${allowedAnalysisDates().max} 중식을 기준으로 1번학교과 2번학교의 급식을 비교 분석해 주세요.`,
+      `${allowedAnalysisDates().max} 중식을 기준으로 1번학교 (서울특별시 · 서울특별시교육청 · 학교 코드 S1)와 2번학교 (서울특별시 · 서울특별시교육청 · 학교 코드 S2)의 급식을 비교 분석해 주세요.`,
     );
     expect(agentMock.analyze).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "전송" })).toBeEnabled();
