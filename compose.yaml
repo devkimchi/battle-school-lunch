@@ -3,8 +3,8 @@ name: school-lunch
 services:
   api:
     build:
-      context: ./src/api
-      dockerfile: Dockerfile
+      context: ./src
+      dockerfile: api/Dockerfile
     image: school-lunch/api:latest
     container_name: school-lunch-api
     restart: unless-stopped
@@ -27,6 +27,40 @@ services:
         - -c
         - "import urllib.request,sys;\
 sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health',timeout=2).status==200 else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    cap_drop:
+      - ALL
+
+  mcp:
+    build:
+      context: ./src
+      dockerfile: mcp/Dockerfile
+    image: school-lunch/mcp:latest
+    container_name: school-lunch-mcp
+    restart: unless-stopped
+    environment:
+      NEIS_API_KEY: ${NEIS_API_KEY:?NEIS_API_KEY is required}
+      NEIS_BASE_URL: ${NEIS_BASE_URL:-https://open.neis.go.kr/hub}
+      PORT: "8000"
+    ports:
+      - "127.0.0.1:${MCP_PORT:-8001}:8000"
+    networks:
+      - school-lunch
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys;\
+sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=2).status==200 else 1)"
       interval: 30s
       timeout: 5s
       retries: 3

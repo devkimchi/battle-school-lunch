@@ -37,19 +37,19 @@ RUN apt-get update \
 
 # Install uv (pinned). Use a static binary so we don't pollute the system
 # Python install.
-COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.11.32 /uv /usr/local/bin/uv
 
 WORKDIR /app
 
 # Copy dependency manifests first to maximise layer caching: when only the
 # source changes, `uv sync` does not need to re-run.
-COPY pyproject.toml uv.lock ./
+COPY api/pyproject.toml api/uv.lock ./
 
 # Install runtime deps only (no `--all-groups`), strictly from the lockfile.
 RUN uv sync --frozen --no-dev --no-install-project
 
 # Copy the application source and install the project itself into the venv.
-COPY app ./app
+COPY api/app ./app
 RUN uv sync --frozen --no-dev
 
 # -----------------------------------------------------------------------------

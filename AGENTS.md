@@ -29,14 +29,14 @@ OpenAPI 기반 MCP 서버 프로젝트.
 ├── PRD.md        제품 요구사항
 ├── TRD.md        기술 요구사항
 ├── LICENSE       MIT 라이선스
-├── apphost.mts   Aspire TypeScript AppHost (api + web)
+├── apphost.mts   Aspire TypeScript AppHost (api + mcp + web)
 ├── aspire.config.json Aspire AppHost 설정
-├── compose.yaml  Docker Compose: 두 컨테이너 앱 오케스트레이션
-├── .env.example  환경 변수 템플릿 (NEIS_API_KEY, 선택: WEB_PORT)
+├── compose.yaml  Docker Compose: 세 컨테이너 앱 오케스트레이션
+├── .env.example  환경 변수 템플릿 (NEIS_API_KEY, 선택: MCP_PORT/WEB_PORT)
 └── src/
     ├── api/          FastAPI 백엔드 (Python 3.12+ / uv)
     ├── web/          React 19 + Vite + TypeScript + Tailwind v4 프런트엔드
-    ├── mcp/          OpenAPI 기반 MCP 서버 (Python 3.12+ / uv, 구현 예정)
+    ├── mcp/          OpenAPI 기반 MCP 서버 (Python 3.12+ / uv)
     ├── e2e/          Playwright 엔드투엔드 테스트 (Chromium)
     └── openapi.json  백엔드·MCP 도구의 단일 NEIS Open API 명세
 ```
@@ -107,11 +107,15 @@ npm run test:watch              # Vitest watch
 npm run test:coverage           # 커버리지 리포트
 ```
 
-### MCP 서버 (`src/mcp/`, 구현 예정)
+### MCP 서버 (`src/mcp/`)
 
-MCP 패키지를 추가할 때 `uv`를 사용하고, 실행 명령과 `/mcp` 연결 예시를
-`src/mcp/README.md`에 함께 문서화합니다. 구현 전에는 존재하지 않는 명령을
-README나 이 파일에 완료된 기능처럼 기록하지 마세요.
+```bash
+uv sync --all-groups
+uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
+uv run pytest
+```
+
+실행 명령과 `/mcp` 연결 예시는 `src/mcp/README.md`를 따릅니다.
 
 ### E2E (`src/e2e/`)
 
@@ -127,10 +131,10 @@ npm run report                  # 마지막 리포트 보기
 
 ```bash
 npm install                     # TypeScript AppHost 의존성
-npm run dev                     # Aspire로 api + web 실행
+npm run dev                     # Aspire로 api + mcp + web 실행
 aspire stop                     # Aspire AppHost와 리소스 중지
 
-docker compose up -d --build    # 두 서비스 컨테이너 기동 (web만 외부 노출)
+docker compose up -d --build    # 세 서비스 기동 (mcp는 localhost 전용)
 docker compose down             # 중지 및 제거
 
 az login
@@ -155,11 +159,11 @@ aspire destroy --environment production
 - **Aspire**: `apphost.mts`만 직접 편집하고 생성물인 `.aspire/modules/`는 수정하지
   마세요. `web`은 `api`를 참조하고 준비 상태를 기다리며, API URL은
   `withEnvironment("API_URL", api.getEndpoint("http"))`로 주입합니다.
-  `NEIS_API_KEY`는 secret parameter로 모델링해 `api` 환경 변수로 전달합니다.
+  `NEIS_API_KEY`는 secret parameter로 모델링해 `api`와 `mcp` 환경 변수로 전달합니다.
   Azure 배포에서는 `aca` Container Apps environment와 기존 nginx Dockerfile을
   사용하는 `publishAsDockerFile(...)` 생산 모델을 유지합니다. nginx의 target
   port는 8080이고 `API_UPSTREAM`에는 internal `api` endpoint를 주입합니다.
-  `web`만 external endpoint이고 `api`는 internal입니다.
+  `web`만 external endpoint이고 `api`와 `mcp`는 internal입니다.
 - **MCP 서버**: `src/openapi.json`의 `operationId`, 설명, 파라미터와 필수 여부를
   도구 스키마에 반영합니다. 동일한 스키마를 코드에 중복 정의하지 마세요.
   `NEIS_API_KEY`는 환경 변수로만 주입하고, NEIS 오류는 코드와 메시지가 포함된

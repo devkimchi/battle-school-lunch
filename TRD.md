@@ -177,18 +177,21 @@ server: {
 | 도구 명세 | `src/openapi.json` (OpenAPI 3.0.3) |
 | 전송 방식 | Streamable HTTP (`/mcp`) |
 
-### 4.2 목표 디렉터리 구조
+### 4.2 디렉터리 구조
 
 ```text
 src/mcp/
 ├── pyproject.toml
 ├── uv.lock
+├── Dockerfile
 ├── README.md
-└── app/
-    ├── __init__.py
-    ├── main.py          # MCP 서버 엔트리포인트와 Streamable HTTP 실행
-    ├── openapi.py       # OpenAPI 문서 로드 및 MCP 도구 등록
-    └── neis_client.py   # 인증키 주입, NEIS 비동기 HTTP 호출 및 오류 매핑
+├── app/
+│   ├── __init__.py
+│   ├── config.py        # 환경 변수와 저장소 루트 .env 로드
+│   ├── main.py          # MCP 서버 엔트리포인트와 Streamable HTTP 실행
+│   ├── openapi.py       # OpenAPI 문서 로드 및 MCP 도구 등록
+│   └── neis_client.py   # 인증키 주입, NEIS 비동기 HTTP 호출 및 오류 매핑
+└── tests/               # OpenAPI, NEIS, MCP protocol 단위·통합 테스트
 ```
 
 ### 4.3 MCP 도구
@@ -201,9 +204,11 @@ src/mcp/
 - 시작할 때 `src/openapi.json`을 읽어 도구 입력 스키마를 구성한다.
 - 명세의 `operationId`, 설명, 입력 파라미터와 필수 여부를 MCP 도구에 반영한다.
 - 명세가 없거나 유효하지 않으면 도구가 일부만 등록된 상태로 실행하지 않고 시작 오류를 반환한다.
-- `Type` 파라미터를 생략하면 JSON 형식을 사용한다.
+- `Type`, `pIndex`, `pSize`는 선택 파라미터이며 생략 시 `json`, `1`, `100`을 사용한다.
+- 급식 도구의 `MMEAL_SC_CODE`는 중식 코드 `2`로 제한한다.
 - `NEIS_API_KEY`는 도구 인자로 노출하지 않는다.
 - NEIS 오류는 코드와 메시지를 포함한 MCP 도구 오류로 전달한다.
+- `/health`는 Aspire와 Docker Compose의 liveness probe에만 사용한다.
 
 ---
 
@@ -306,7 +311,14 @@ npm run dev
 
 ### 8.3 MCP 서버
 
-MCP 서버 구현 시 `src/mcp/README.md`에 Streamable HTTP 실행 명령과 `/mcp` 연결 예시를 제공한다.
+```bash
+cd src/mcp
+uv sync
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8001
+```
+
+MCP endpoint는 `http://127.0.0.1:8001/mcp`이며 자세한 Inspector·Python client,
+Aspire, Docker Compose 연결 방법은 `src/mcp/README.md`에 정리한다.
 
 ---
 
@@ -329,6 +341,12 @@ MCP 서버 구현 시 `src/mcp/README.md`에 Streamable HTTP 실행 명령과 `/
 13. `web-meals-result` — 날짜별 중식 카드
 14. `web-manual-verify` — 전체 흐름 수동 검증
 15. `docs` — 루트 `README.md` 업데이트
+16. `mcp-openapi` — OpenAPI 검증·참조 해석·도구 입력 스키마 생성
+17. `mcp-runtime` — NEIS 비동기 호출·오류 매핑·Streamable HTTP `/mcp`
+18. `mcp-compose` — hardened MCP 이미지와 localhost 전용 Compose endpoint
+19. `mcp-aspire` — Uvicorn 로컬 리소스와 internal ACA Container App 게시 모델
+20. `mcp-tests` — OpenAPI·NEIS·MCP protocol 단위·통합 테스트와 CI
+21. `mcp-docs` — 실행·연결·보안 정책 문서화
 
 ### 9.2 구현 중 해결한 이슈
 
@@ -336,3 +354,5 @@ MCP 서버 구현 시 `src/mcp/README.md`에 Streamable HTTP 실행 명령과 `/
 - **shadcn CLI 초기화 중단** → UI 컴포넌트를 수기로 구성했다.
 - **lucide-react 버전 확인** → 패키지 레지스트리의 최신 버전을 기준으로 설치했다.
 - NEIS의 정상 응답과 `RESULT`만 있는 오류 응답을 공통 추출 로직으로 처리했다.
+- MCP Docker build context를 `src`로 설정해 `src/openapi.json`을 중복 없이 이미지에 포함했다.
+- `/mcp` trailing-slash redirect를 제거해 redirect를 따르지 않는 MCP SDK 클라이언트도 연결되게 했다.

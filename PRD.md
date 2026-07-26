@@ -154,10 +154,10 @@ NEIS API 키(`NEIS_API_KEY`)는 보안을 위해 **백엔드에만 보관**하�
 - [x] `NEIS_API_KEY` 가 프론트엔드 번들에 포함되지 않는다 (백엔드 환경변수만으로 동작).
 - [x] `npm run build` 가 타입 오류 없이 성공한다.
 - [x] 실제 NEIS API 키로 서울고등학교 5월 식단을 정상 조회한다 (수동 검증 완료).
-- [ ] `src/mcp`에서 MCP 서버를 실행하고 `/mcp` 엔드포인트에 Streamable HTTP 방식으로 연결할 수 있다.
-- [ ] MCP 클라이언트에서 `getSchoolInfo`와 `getMealServiceDietInfo` 도구 및 OpenAPI 기반 입력 스키마를 확인할 수 있다.
-- [ ] 두 MCP 도구가 `NEIS_API_KEY`를 도구 인자로 노출하지 않고 NEIS JSON 응답을 반환한다.
-- [ ] 유효하지 않은 OpenAPI 명세와 NEIS 오류가 명시적인 시작 오류 또는 MCP 도구 오류로 전달된다.
+- [x] `src/mcp`에서 MCP 서버를 실행하고 `/mcp` 엔드포인트에 Streamable HTTP 방식으로 연결할 수 있다.
+- [x] MCP 클라이언트에서 `getSchoolInfo`와 `getMealServiceDietInfo` 도구 및 OpenAPI 기반 입력 스키마를 확인할 수 있다.
+- [x] 두 MCP 도구가 `NEIS_API_KEY`를 도구 인자로 노출하지 않고 NEIS JSON 응답을 반환한다.
+- [x] 유효하지 않은 OpenAPI 명세와 NEIS 오류가 명시적인 시작 오류 또는 MCP 도구 오류로 전달된다.
 
 ---
 
