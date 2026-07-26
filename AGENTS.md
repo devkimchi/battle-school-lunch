@@ -6,8 +6,8 @@
 
 ## 1. 프로젝트 개요
 
-NEIS 오픈 API(학교기본정보 / 급식식단정보) 위에 구축한 풀스택 급식 조회 앱과
-OpenAPI 기반 MCP 서버 프로젝트.
+NEIS 오픈 API(학교기본정보 / 급식식단정보) 위에 구축한 풀스택 급식 조회 앱,
+OpenAPI 기반 MCP 서버와 Microsoft Agent Framework 비교 분석 서비스 프로젝트.
 
 - 급식은 항상 **중식(lunch, `MMEAL_SC_CODE=2`)** 으로 필터링합니다.
 - 프런트엔드 ↔ 백엔드는 `/api/*` 경로로 통신합니다.
@@ -16,6 +16,8 @@ OpenAPI 기반 MCP 서버 프로젝트.
   - 운영: 프런트엔드와 백엔드가 같은 오리진의 `/api` 아래에서 동작.
 - MCP 서버는 `src/openapi.json`을 단일 명세 원본으로 사용하고 `/mcp`에서
   Streamable HTTP 전송을 제공합니다.
+- Agent 서비스는 `/agent`에서 AG-UI를 제공하고 MCP로 데이터를 준비한 뒤 세 전문
+  에이전트를 Concurrent 실행하고 Judge가 종합합니다.
 - 제품 요구사항은 `PRD.md`, 시스템 구조와 구현 결정은 `TRD.md`를 기준으로 합니다.
 
 ## 2. 디렉터리 구조
@@ -29,14 +31,16 @@ OpenAPI 기반 MCP 서버 프로젝트.
 ├── PRD.md        제품 요구사항
 ├── TRD.md        기술 요구사항
 ├── LICENSE       MIT 라이선스
-├── apphost.mts   Aspire TypeScript AppHost (api + mcp + web)
+├── EVALUATION-RUBRIC.md 급식 분석 평가 기준 단일 원본
+├── apphost.mts   Aspire TypeScript AppHost (api + mcp + agent + web)
 ├── aspire.config.json Aspire AppHost 설정
-├── compose.yaml  Docker Compose: 세 컨테이너 앱 오케스트레이션
-├── .env.example  환경 변수 템플릿 (NEIS_API_KEY, 선택: MCP_PORT/WEB_PORT)
+├── compose.yaml  Docker Compose: 네 컨테이너 앱 오케스트레이션
+├── .env.example  NEIS·Foundry·포트 환경 변수 템플릿
 └── src/
     ├── api/          FastAPI 백엔드 (Python 3.12+ / uv)
     ├── web/          React 19 + Vite + TypeScript + Tailwind v4 프런트엔드
     ├── mcp/          OpenAPI 기반 MCP 서버 (Python 3.12+ / uv)
+    ├── agent/        Agent Framework + AG-UI 분석 서비스 (Python 3.12+ / uv)
     ├── e2e/          Playwright 엔드투엔드 테스트 (Chromium)
     └── openapi.json  백엔드·MCP 도구의 단일 NEIS Open API 명세
 ```
@@ -51,7 +55,7 @@ OpenAPI 기반 MCP 서버 프로젝트.
 
 ### 프런트엔드 내부 구조 (`src/web/src/`)
 
-- `pages/` — 라우팅되는 페이지(`LandingPage`, `DateRangePage`, `MealsResultPage`)
+- `pages/` — 조회 페이지와 `MealAnalysisPage`
 - `components/ui/` — shadcn 스타일 UI 컴포넌트
 - `lib/api.ts` — `/api/*` 호출 래퍼
 - `test/` — 테스트 인프라(MSW 핸들러, `renderWithProviders` 헬퍼, 통합 스위트)
@@ -63,12 +67,20 @@ OpenAPI 기반 MCP 서버 프로젝트.
 - `neis_client.py` — 인증키 주입, NEIS 비동기 HTTP 호출, 오류 매핑
 - 최소 도구 — `getSchoolInfo`, `getMealServiceDietInfo`
 
+### Agent 서비스 구조 (`src/agent/`)
+
+- `app/main.py` — `/agent` AG-UI와 `/health`, MCP·credential lifespan
+- `app/data.py` — MCP 학교 후보·두 학교 중식 조회와 preflight
+- `app/workflow.py` — 세 전문 에이전트 Concurrent + Judge aggregator
+- `app/agui.py` — typed shared state와 AG-UI 단계 이벤트
+- `instructions/*.md` — 역할별 외부 지침
+
 ## 3. 사전 준비물
 
 | 도구 | 버전 | 사용 위치 |
 | --- | --- | --- |
-| Python | 3.12+ | `src/api`, `src/mcp` |
-| `uv` | latest | `src/api`, `src/mcp` |
+| Python | 3.12+ | `src/api`, `src/mcp`, `src/agent` |
+| `uv` | latest | `src/api`, `src/mcp`, `src/agent` |
 | Node.js | 22+ (24 LTS 권장) | `src/web`, `src/e2e` |
 | npm | 10+ | `src/web`, `src/e2e` |
 | Aspire CLI | 13.4+ | 로컬 풀스택 오케스트레이션 |
@@ -117,6 +129,17 @@ uv run pytest
 
 실행 명령과 `/mcp` 연결 예시는 `src/mcp/README.md`를 따릅니다.
 
+### Agent 서비스 (`src/agent/`)
+
+```bash
+uv sync --all-groups
+uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8002
+uv run pytest
+```
+
+실행 전 `az login`, `FOUNDRY_PROJECT_ENDPOINT`,
+`FOUNDRY_MODEL_DEPLOYMENT_NAME`, 실행 중인 MCP 서버가 필요합니다.
+
 ### E2E (`src/e2e/`)
 
 ```bash
@@ -131,10 +154,10 @@ npm run report                  # 마지막 리포트 보기
 
 ```bash
 npm install                     # TypeScript AppHost 의존성
-npm run dev                     # Aspire로 api + mcp + web 실행
+npm run dev                     # Aspire로 api + mcp + agent + web 실행
 aspire stop                     # Aspire AppHost와 리소스 중지
 
-docker compose up -d --build    # 세 서비스 기동 (mcp는 localhost 전용)
+docker compose up -d --build    # 네 서비스 기동 (mcp, agent는 localhost 전용)
 docker compose down             # 중지 및 제거
 
 az login
@@ -163,11 +186,17 @@ aspire destroy --environment production
   Azure 배포에서는 `aca` Container Apps environment와 기존 nginx Dockerfile을
   사용하는 `publishAsDockerFile(...)` 생산 모델을 유지합니다. nginx의 target
   port는 8080이고 `API_UPSTREAM`에는 internal `api` endpoint를 주입합니다.
-  `web`만 external endpoint이고 `api`와 `mcp`는 internal입니다.
+  `web`만 external endpoint이고 `api`, `mcp`, `agent`는 internal입니다.
 - **MCP 서버**: `src/openapi.json`의 `operationId`, 설명, 파라미터와 필수 여부를
   도구 스키마에 반영합니다. 동일한 스키마를 코드에 중복 정의하지 마세요.
   `NEIS_API_KEY`는 환경 변수로만 주입하고, NEIS 오류는 코드와 메시지가 포함된
   MCP 도구 오류로 전달합니다. 전송 방식은 `/mcp` 기반 Streamable HTTP입니다.
+- **Agent 서비스**: 사람용 평가 기준은 루트 `EVALUATION-RUBRIC.md`, 역할 지침은
+  `src/agent/instructions/*.md`에서 관리합니다. 전문 에이전트 점수는 1~5 정수이며
+  45/30/25 환산과 총점은 코드가 계산합니다. Judge는 점수를 변경하지 않습니다.
+  AppHost가 실행될 때 rubric을 gitignored `src/agent/.generated/`에 복사하므로 이
+  생성물은 직접 편집하거나 커밋하지 마세요.
+  MCP와 Foundry는 반드시 경계에서 모킹하고 자격 증명을 web으로 전달하지 마세요.
 - **급식 조회 제약**: 날짜 범위는 **최대 31일**.
 
 ## 6. 테스트 원칙
@@ -177,9 +206,10 @@ aspire destroy --environment production
 | 단위/통합 (API) | `src/api/tests/` | pytest + respx | NEIS HTTP 경계 |
 | 단위/통합 (Web) | `src/web/src/**/*.test.*`, `src/web/src/test/integration/` | Vitest + RTL + MSW | `/api/*` |
 | 단위/통합 (MCP) | `src/mcp/tests/` | pytest + respx | NEIS HTTP 경계 |
-| 엔드투엔드 | `src/e2e/tests/` | Playwright | `/api/*` (`page.route`) |
+| 단위/통합 (Agent) | `src/agent/tests/` | pytest | MCP·Foundry 경계 |
+| 엔드투엔드 | `src/e2e/tests/` | Playwright | `/api/*`, `/agent` (`page.route`) |
 
-- **어떤 테스트도 실제 NEIS 서비스에 접근하지 않습니다.** 항상 경계에서 모킹.
+- **어떤 테스트도 실제 NEIS나 Foundry 서비스에 접근하지 않습니다.** 항상 경계에서 모킹.
 - 백엔드 마커: `unit`(순수 함수, I/O 없음), `integration`(`TestClient` + respx).
   `--strict-markers`가 켜져 있으므로 새 마커는 `pyproject.toml`에 먼저 등록.
 - 프런트엔드: 프레젠테이션 컴포넌트(`Button` 등)와 한 줄짜리 유틸(`cn`)에는
@@ -204,16 +234,16 @@ aspire destroy --environment production
 
 - **시크릿**: `.env`는 절대 커밋하지 않습니다. 키는 로컬 `.env` 또는 배포
   프로세스의 `Parameters__neis_api_key` 환경 변수로만 주입합니다.
-- **의존성**: 백엔드와 MCP 서버는 각 패키지 디렉터리에서 `uv add`로 추가해
+- **의존성**: 백엔드, MCP, Agent 서버는 각 패키지 디렉터리에서 `uv add`로 추가해
   `uv.lock`을 갱신하고, 프런트엔드는 `npm`으로 추가해 `package-lock.json`을
   갱신합니다. 락 파일을 수동 편집하지 마세요.
 - **Azure 배포 원본**: `apphost.mts`가 Azure 토폴로지의 단일 원본입니다.
 - **컨테이너 보안 강화 유지**: `compose.yaml`과 각 Dockerfile은 non-root, `cap_drop: ALL`,
   `no-new-privileges`, read-only 루트 파일시스템을 사용합니다. 디버깅 편의를 위해
   이 설정을 약화시키지 마세요.
-- **운영 nginx 프록시**: Web→API는 nginx에서 `proxy_set_header Host $proxy_host`와
+- **운영 nginx 프록시**: Web→API/Agent는 nginx에서 `proxy_set_header Host $proxy_host`와
   `proxy_ssl_server_name on`으로 HTTPS 업스트림에 연결됩니다. 이 설정을 변경할 때
   TLS SNI / 호스트 라우팅이 깨지지 않도록 주의하세요.
 - **CORS**: 허용 오리진은 `src/api/app/config.py`의 `CORS_ORIGINS`로 제어합니다.
-  Azure에서는 public `web`의 nginx가 같은 오리진 `/api`를 internal `api`로
-  프록시하므로 브라우저에 API origin을 별도로 노출하지 않습니다.
+  Azure에서는 public `web`의 nginx가 같은 오리진 `/api`와 `/agent`를 internal
+  서비스로 프록시하므로 브라우저에 내부 origin을 별도로 노출하지 않습니다.

@@ -62,3 +62,4 @@ Desktop.ini
 $RECYCLE.BIN/
 .aspire/
 aspire-output/
+src/agent/.generated/

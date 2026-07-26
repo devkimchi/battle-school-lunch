@@ -8,15 +8,17 @@
 
 ```text
 Web browser
-    │ /api/*
+    ├─ /api/*
+    │
+    └─ /agent (AG-UI POST + SSE)
     ▼
 Frontend (React/Vite → nginx or YARP)
-    │ /api/*
-    ▼
-Backend (FastAPI)
-    │ HTTPS + NEIS_API_KEY
-    ▼
-NEIS Open API
+    ├─ /api/*  → Backend (FastAPI) → NEIS Open API
+    └─ /agent  → Agent (FastAPI + Microsoft Agent Framework)
+                    ├─ DefaultAzureCredential → Microsoft Foundry model
+                    └─ MCP Streamable HTTP /mcp
+                           ▼
+                       MCP server → NEIS Open API
 
 MCP client
     │ Streamable HTTP /mcp
@@ -28,12 +30,13 @@ NEIS Open API
 ```
 
 - 프론트엔드는 NEIS를 직접 호출하지 않고 백엔드의 `/api/*`만 사용한다.
-- 급식 분석 채팅은 현재 프론트엔드 로컬 상태로만 동작하며 백엔드나 MCP 서버를 호출하지 않는다.
+- 급식 분석은 같은 오리진 `/agent`에서 AG-UI 프로토콜로 상태와 결과를 스트리밍한다.
+- agent는 MCP 서버로 학교·중식을 직접 조회하고 세 전문 에이전트를 Concurrent 실행한 뒤 Judge로 fan-in한다.
 - MCP 서버는 `src/openapi.json`에서 도구 스키마를 구성하고 NEIS를 직접 호출한다.
 - 백엔드와 MCP 서버는 `NEIS_API_KEY`를 서버 환경 변수로만 주입받는다.
-- 로컬에서는 TypeScript Aspire AppHost가 `api`와 `web`을 오케스트레이션한다.
-- Azure에서는 AppHost가 하나의 Container Apps Environment에 internal `api`와
-  public `web`을 배포하며, `web`의 nginx가 `/api`를 내부 서비스로 프록시한다.
+- 로컬에서는 TypeScript Aspire AppHost가 `api`, `mcp`, `agent`, `web`을 오케스트레이션한다.
+- Azure에서는 AppHost가 하나의 Container Apps Environment에 internal `api`, `mcp`,
+  `agent`와 public `web`을 배포하며, nginx가 `/api`와 `/agent`를 내부 서비스로 프록시한다.
 - Azure 배포 토폴로지의 단일 원본은 `apphost.mts`이며 `aspire deploy`로 적용한다.
 
 ---
@@ -104,6 +107,7 @@ src/api/
 | 날짜 유틸 | **date-fns v4** |
 | 클래스 합성 | `clsx` + `tailwind-merge` (`cn` 헬퍼) |
 | 아이콘 | `lucide-react` |
+| Agent 프로토콜 | `@ag-ui/client` (`HttpAgent`) |
 
 ### 3.2 디렉터리 구조
 
@@ -115,7 +119,7 @@ src/web/
 ├── index.html
 ├── package.json
 ├── package-lock.json
-├── vite.config.ts        # @tailwindcss/vite, alias '@', proxy /api → :8000
+├── vite.config.ts        # @tailwindcss/vite, alias '@', proxy /api + /agent
 ├── vitest.config.ts
 ├── tsconfig*.json        # paths: { "@/*": ["./src/*"] }
 ├── README.md
@@ -133,6 +137,9 @@ src/web/
     ├── lib/
     │   ├── api.ts        # fetch 래퍼 (searchSchools, getMeals)
     │   ├── api.test.ts
+    │   ├── analysis-agent.ts       # AG-UI HttpAgent 래퍼
+    │   ├── analysis-agent.test.ts
+    │   ├── analysis-types.ts       # shared state/result 타입
     │   └── utils.ts      # cn()
     ├── components/ui/    # button, input, card, calendar
     ├── pages/
@@ -154,28 +161,33 @@ src/web/
 | `/` | LandingPage (학교 검색) |
 | `/school/:schoolCode` | DateRangePage (날짜 범위 선택) |
 | `/school/:schoolCode/meals` | MealsResultPage (날짜별 중식 카드) |
-| `/analysis` | MealAnalysisPage (프론트엔드 전용 분석 채팅) |
+| `/analysis` | MealAnalysisPage (학교 선택·멀티에이전트 비교 보고서) |
 
 `App.tsx`의 공통 셸은 모든 경로 상단에 `학교 급식 조회`와 `학교 급식 분석`
 링크를 표시한다. 현재 경로는 `aria-current="page"`로 식별하며, 내비게이션은
 `position: sticky`, `top: 0`으로 스크롤 중에도 화면 상단에 유지한다.
 
-### 3.4 분석 채팅 UI
+### 3.4 멀티에이전트 분석 UI
 
-- `MealAnalysisPage`는 React 로컬 상태에 사용자 메시지 배열과 현재 입력값을 보관한다.
-- 공백을 제거한 입력이 비어 있으면 전송 버튼을 비활성화하고 폼 제출도 무시한다.
-- 유효한 폼 제출은 사용자 메시지를 목록에 추가하고 입력값을 초기화한다.
-- `textarea`의 일반 `Enter` 기본 동작은 유지해 줄바꿈을 입력한다.
-- `Ctrl+Enter` 또는 `Command+Enter`는 IME 조합 중이 아닐 때
-  `requestSubmit()`으로 전송 버튼과 동일한 폼 검증·제출 경로를 사용한다.
-- 서버 API 호출, 분석 응답 생성, 대화 영속 저장은 구현하지 않는다.
+- `HttpAgent` 인스턴스는 thread ID, 메시지와 typed shared state를 유지한다.
+- 페이지 진입 시 `load_candidates` action을 보내고 학교 후보 10곳을 렌더링한다.
+- 두 학교와 허용 날짜가 선택되면 프롬프트를 자동 작성하지만 전송은 사용자가 수행한다.
+- `loading_meals`, `evaluating`, `judging`, `completed`, `error` phase를 SSE
+  `STATE_SNAPSHOT`으로 받아 진행 상태와 결과를 갱신한다.
+- 결과는 학교별 메뉴, 영역별 5점 평점·환산 점수, 100점 총점, Judge 보고서,
+  개선안과 데이터 한계를 접근 가능한 카드와 표로 표시한다.
+- `RUN_ERROR`는 구독자 내부 예외에 의존하지 않고 스트림 종료 후 명시적으로
+  전파해 사용자 오류 상태로 변환한다.
 
 ### 3.5 Vite 개발 프록시
 
 ```ts
 server: {
   port: 5173,
-  proxy: { '/api': { target: 'http://localhost:8000', changeOrigin: true } }
+  proxy: {
+    '/api': { target: 'http://localhost:8000', changeOrigin: true },
+    '/agent': { target: 'http://localhost:8002', changeOrigin: true }
+  }
 }
 ```
 
@@ -229,7 +241,48 @@ src/mcp/
 
 ---
 
-## 5. 데이터 모델 (Internal Schemas)
+## 5. Agent Service (`src/agent`)
+
+### 5.1 기술 스택과 구성
+
+| 구분 | 선정 |
+| --- | --- |
+| 언어/패키지 | Python 3.12+ / uv |
+| 웹·프로토콜 | FastAPI + `agent-framework-ag-ui` |
+| 에이전트 | Microsoft Agent Framework + `FoundryChatClient` |
+| 인증 | `DefaultAzureCredential` (로컬 Azure CLI, Azure 관리 ID) |
+| Aspire 리소스 | `Aspire.Hosting.Foundry` account + project + `gpt-5-mini` deployment |
+| 데이터 도구 | `MCPStreamableHTTPTool` (`getSchoolInfo`, `getMealServiceDietInfo`만 허용) |
+| endpoint | `POST /agent` (SSE), `GET /health` |
+
+`src/agent/instructions/*.md`는 Nutrition, Health, Menu Quality, Judge 지침을
+코드 밖에서 관리한다. 모든 점수 정의와 가중치의 사람이 읽는 단일 원본은 루트
+`EVALUATION-RUBRIC.md`다. AppHost는 실행·배포 모델을 평가하기 전에 이를
+gitignored `src/agent/.generated/` 경로로 복사하고 agent image에 포함한다.
+
+### 5.2 데이터 준비와 워크플로
+
+1. 학교 전체 건수에서 난수 인덱스를 표본 추출하고 필요한 MCP 페이지만 조회해
+   중복 없는 후보 10곳을 만든다.
+2. 선택한 두 학교의 해당 날짜 중식을 병렬 조회하고 누락 시 구조화 오류로 중단한다.
+3. Nutrition(45), Health(30), Menu Quality(25) Agent를 Concurrent 실행한다.
+4. Pydantic 구조화 출력에서 1~5 평점을 받아 애플리케이션 코드가 환산 점수와
+   총점을 계산한다.
+5. custom aggregator의 Judge가 점수를 수정하지 않고 근거·모순·한계를 검토해
+   한국어 최종 보고서를 작성한다.
+
+각 브라우저 실행은 thread별 workflow factory와 shared state를 사용해 격리된다.
+정상적인 사용자 조치 오류는 `phase=error` 스냅샷으로, 예상하지 못한 실패는 AG-UI
+`RUN_ERROR`로 전달한다.
+
+### 5.3 데이터 한계
+
+NEIS 메뉴명과 영양 문자열에 정량 나트륨·당류·포화지방이 없으면 해당 평가는
+정성적 추정임을 밝힌다. 에이전트는 제공되지 않은 수치를 생성해서는 안 된다.
+
+---
+
+## 6. 데이터 모델 (Internal Schemas)
 
 ```ts
 interface School {
@@ -252,71 +305,80 @@ interface Meal {
 
 ---
 
-## 6. 설계 결정 및 트레이드오프 (Decisions & Trade-offs)
+## 7. 설계 결정 및 트레이드오프 (Decisions & Trade-offs)
 
-### 6.1 백엔드 프록시 패턴
+### 7.1 백엔드 프록시 패턴
 
 NEIS API를 프론트엔드에서 직접 호출하지 않고 백엔드 프록시를 둔다.
 
 - **이유**: `NEIS_API_KEY` 노출 방지, 응답 정규화, 향후 캐싱/재시도 추가 용이.
 - **트레이드오프**: 호출마다 한 번의 네트워크 hop이 추가된다.
 
-### 6.2 중식 고정 (`MMEAL_SC_CODE=2`)
+### 7.2 중식 고정 (`MMEAL_SC_CODE=2`)
 
 요구사항이 중식만을 대상으로 하므로 백엔드에서 코드를 고정한다. 조식/석식 지원 시 쿼리 파라미터로 확장한다.
 
-### 6.3 최대 31일 제한
+### 7.3 최대 31일 제한
 
 - UX와 응답 페이로드 안정성을 위해 조회 범위를 제한한다.
 - 백엔드와 프론트엔드 양쪽에서 검증한다.
 
-### 6.4 shadcn CLI 미사용, 컴포넌트 수기 작성
+### 7.4 shadcn CLI 미사용, 컴포넌트 수기 작성
 
 - 사용하는 컴포넌트가 Button, Input, Card, Calendar로 제한되어 수기 구성이 단순하다.
 - Tailwind v4의 `@theme inline` 블록으로 shadcn 스타일 CSS 변수 토큰을 유지한다.
 
-### 6.5 react-router-dom v7 + react-query v5
+### 7.5 react-router-dom v7 + react-query v5
 
 - React 19 호환 메이저 버전을 사용한다.
 - 검색·식단 데이터는 react-query 캐시 키로 관리한다.
 
-### 6.6 학교 검색 페이지네이션 미지원
+### 7.6 학교 검색 페이지네이션 미지원
 
 - NEIS 단일 응답에서 최대 100건만 사용한다.
 - 결과가 많으면 구체적인 검색어를 권장하며, 필요 시 백엔드 `?page=` 파라미터로 확장한다.
 
-### 6.7 OpenAPI 기반 MCP 도구
+### 7.7 OpenAPI 기반 MCP 도구
 
 - `src/openapi.json`의 `operationId`를 MCP 도구 이름으로 사용한다.
 - 인증과 NEIS 오류 처리는 공통 HTTP 클라이언트에서 수행한다.
 - 독립 프로세스와 원격 환경에서 연결할 수 있도록 `/mcp` 기반 Streamable HTTP 전송을 사용한다.
 
-### 6.8 프론트엔드 전용 분석 채팅
+### 7.8 AG-UI와 결정적 점수 계산
 
-- 분석 API 계약이 없는 현재 단계에서는 채팅 상호작용과 레이아웃만 먼저 제공한다.
-- 메시지를 로컬 상태로 제한해 존재하지 않는 분석 백엔드에 성공한 것처럼 보이는
-  요청이나 임시 응답을 만들지 않는다.
-- 향후 분석 API를 도입할 때는 `lib/api.ts` 래퍼와 react-query를 통해 연결하고,
-  로딩·오류·스트리밍 상태를 별도 요구사항으로 정의한다.
+- 브라우저와 agent는 임의 REST 응답이 아니라 AG-UI POST + SSE 계약을 사용한다.
+- LLM은 영역별 구조화 평가만 생성하고 환산 점수·총점·승자 판정은 코드가 수행한다.
+- Judge는 비채점 품질 게이트로 제한해 설명 품질이 급식 자체 점수를 바꾸지 않게 한다.
+- 세 전문 호출을 병렬화해 순차 호출 대비 지연 시간을 줄이는 대신 모델 호출 비용은
+  한 분석당 네 번 발생한다.
+- Aspire의 `gpt-5-mini` deployment는 세 전문 호출과 Judge 호출을 수용하도록
+  10K TPM 용량으로 명시한다.
 
 ---
 
-## 7. 환경 변수 (Environment)
+## 8. 환경 변수 (Environment)
 
 저장소 루트의 `.env`:
 
 ```env
 NEIS_API_KEY=발급받은_NEIS_인증키
+FOUNDRY_PROJECT_ENDPOINT=https://.../api/projects/...
+FOUNDRY_MODEL_DEPLOYMENT_NAME=배포_이름
 ```
 
 - 미발급 시 `sample` 키로 동작할 수 있으나 페이지와 건수가 제한된다.
+- Foundry 두 변수는 네이티브·Compose 실행용이다. Aspire에서는 Foundry integration
+  resource reference가 `FOUNDRY_PROJECT_URI`와
+  `FOUNDRY_MODEL_MODELNAME`을 주입한다.
+- `MCP_URL` 기본값은 `http://127.0.0.1:8001/mcp`이며 Aspire에서는 MCP endpoint
+  reference를 주입한다. base URL만 주입되면 agent가 `/mcp`를 보완한다.
 - `.env`는 저장소에 커밋하지 않는다.
 
 ---
 
-## 8. 실행 방법 (Run)
+## 9. 실행 방법 (Run)
 
-### 8.1 백엔드
+### 9.1 백엔드
 
 ```bash
 cd src/api
@@ -324,7 +386,7 @@ uv sync
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
-### 8.2 프론트엔드
+### 9.2 프론트엔드
 
 ```bash
 cd src/web
@@ -334,7 +396,7 @@ npm run dev
 
 브라우저에서 <http://localhost:5173>에 접속한다.
 
-### 8.3 MCP 서버
+### 9.3 MCP 서버
 
 ```bash
 cd src/mcp
@@ -345,11 +407,24 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8001
 MCP endpoint는 `http://127.0.0.1:8001/mcp`이며 자세한 Inspector·Python client,
 Aspire, Docker Compose 연결 방법은 `src/mcp/README.md`에 정리한다.
 
+### 9.4 Agent 서비스
+
+MCP 서버를 먼저 실행한 뒤:
+
+```bash
+az login
+cd src/agent
+uv sync --all-groups
+uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8002
+```
+
+Vite는 `AGENT_URL`이 없으면 `/agent`를 `http://localhost:8002`로 프록시한다.
+
 ---
 
-## 9. 구현 기록 (Implementation Record)
+## 10. 구현 기록 (Implementation Record)
 
-### 9.1 완료된 웹 앱 작업
+### 10.1 완료된 웹 앱 작업
 
 1. `bootstrap-api` — `uv init` + FastAPI/httpx/python-dotenv/pydantic 설치
 2. `api-config` — `.env` 로딩 + Settings 모듈
@@ -374,8 +449,13 @@ Aspire, Docker Compose 연결 방법은 `src/mcp/README.md`에 정리한다.
 21. `mcp-docs` — 실행·연결·보안 정책 문서화
 22. `web-analysis-tabs` — sticky 조회·분석 탭과 `/analysis` 라우트
 23. `web-analysis-chat` — 로컬 메시지 채팅 UI와 Enter/수정자+Enter 키보드 동작
+24. `agent-foundation` — Foundry/MCP 설정, 구조화 계약과 결정적 점수 계산
+25. `concurrent-workflow` — 세 전문 에이전트 병렬 실행과 Judge aggregator
+26. `agui-hosting` — typed shared state, AG-UI endpoint와 hardened 이미지
+27. `web-analysis-ui` — 학교·날짜 선택, 진행 상태, 가중 결과와 Judge 보고서
+28. `runtime-integration` — Aspire/Compose/nginx/CI/E2E 연결
 
-### 9.2 구현 중 해결한 이슈
+### 10.2 구현 중 해결한 이슈
 
 - **npm create vite 인터랙티브 프롬프트** → 비대화형 스캐폴딩 명령으로 우회했다.
 - **shadcn CLI 초기화 중단** → UI 컴포넌트를 수기로 구성했다.

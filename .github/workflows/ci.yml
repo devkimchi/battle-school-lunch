@@ -49,6 +49,24 @@ jobs:
       - run: uv sync --all-groups --frozen
       - run: uv run pytest
 
+  agent:
+    name: Agent
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/agent
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: src/agent/uv.lock
+      - run: uv sync --all-groups --frozen
+      - run: uv run pytest
+
   web:
     name: Web
     runs-on: ubuntu-latest
@@ -92,7 +110,7 @@ jobs:
   deploy:
     name: Deploy to Azure
     if: ${{ github.event_name == 'push' && vars.AZURE_DEPLOYMENT == 'true' }}
-    needs: [api, mcp, web, e2e]
+    needs: [api, mcp, agent, web, e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -26,7 +26,7 @@ export default defineConfig({
     // `npm test` does this automatically via the `pretest` hook.
     // Invoke vite's binary directly to avoid npm's signal-forwarding quirks
     // that confuse Playwright's webServer health probe.
-    command: `./node_modules/.bin/vite preview --host 127.0.0.1 --port ${PORT} --strictPort`,
+    command: `node node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port ${PORT} --strictPort`,
     cwd: "../web",
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,

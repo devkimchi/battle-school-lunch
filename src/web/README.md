@@ -1,8 +1,8 @@
-# 급식 정보 조회 — 프런트엔드
+# 급식 정보 조회·분석 — 프런트엔드
 
 학교를 검색하고 날짜 범위에 대한 중식(lunch) 메뉴를 조회하는 Vite + React +
-TypeScript 앱입니다. Vite 개발 프록시(`/api` → `http://localhost:8000`)를 통해
-`../api`의 FastAPI 백엔드와 통신합니다.
+TypeScript 앱입니다. Vite 개발 프록시는 `/api`를 FastAPI 백엔드로, `/agent`를
+AG-UI 멀티에이전트 서비스로 전달합니다.
 
 > 전체 워크숍을 한 번에 실행/테스트하는 방법은 `../README.md`를 참고하세요.
 
@@ -10,26 +10,30 @@ TypeScript 앱입니다. Vite 개발 프록시(`/api` → `http://localhost:8000
 
 - Node.js 22+ (24 LTS 권장)
 - npm 10+
-- 백엔드(`../api`)가 `http://localhost:8000`에서 실행 중 (또는 `vite.config.ts`의 프록시 대상 수정)
+- 백엔드(`../api`)가 `http://localhost:8000`에서 실행 중
+- 분석 기능 사용 시 agent(`../agent`)가 `http://localhost:8002`에서 실행 중
 
 ## 디렉터리 구조
 
 ```text
 web/
 ├── src/
-│   ├── main.tsx                  # 앱 엔트리 (React 18 root)
+│   ├── main.tsx                  # 앱 엔트리 (React 19 root)
 │   ├── App.tsx                   # 라우터 및 최상위 레이아웃
 │   ├── index.css                 # Tailwind 진입 스타일
 │   ├── types.ts                  # 공용 타입 정의
 │   ├── pages/                    # 라우팅되는 페이지
 │   │   ├── LandingPage.tsx
 │   │   ├── DateRangePage.tsx
-│   │   └── MealsResultPage.tsx
+│   │   ├── MealsResultPage.tsx
+│   │   └── MealAnalysisPage.tsx
 │   ├── components/
 │   │   └── ui/                   # shadcn 스타일 UI 컴포넌트
 │   ├── lib/
 │   │   ├── api.ts                # `/api/*` 호출 래퍼
 │   │   ├── api.test.ts           # api.ts 단위 테스트
+│   │   ├── analysis-agent.ts      # AG-UI HttpAgent 래퍼
+│   │   ├── analysis-types.ts      # shared state/result 타입
 │   │   └── utils.ts              # cn 등 유틸
 │   └── test/                     # 테스트 인프라
 │       ├── setup.ts              # jest-dom + MSW lifecycle
@@ -49,12 +53,18 @@ web/
 ## 실행
 
 ```bash
-cd workshop/week-03/src/web
+cd src/web
 npm install
 npm run dev
 ```
 
-- 앱: <http://localhost:5173> (Vite 개발 서버, `/api`는 `:8000`으로 프록시됨)
+- 앱: <http://localhost:5173>
+- `/api` 기본 target: `http://localhost:8000` (`API_URL`로 변경)
+- `/agent` 기본 target: `http://localhost:8002` (`AGENT_URL`로 변경)
+
+`/analysis`에서는 무작위 후보 10곳 중 학교 두 곳과 날짜를 선택합니다. 선택
+내용으로 프롬프트가 자동 작성되지만 사용자가 전송해야 분석이 시작되며, AG-UI
+shared state로 진행 단계와 최종 가중 보고서를 받습니다.
 
 ## 빌드
 
@@ -67,8 +77,8 @@ npm run preview          # 빌드된 번들을 http://localhost:4173 에서 서�
 
 **Vitest + React Testing Library + MSW** 기반입니다. 단위 테스트는 소스 옆에
 위치하며(`*.test.ts`/`*.test.tsx`), 전체 앱을 마운트하는 통합 테스트는
-`src/test/integration/` 아래에 위치합니다. `MSW` 가 모든 `/api/*` 요청을
-가로채므로 테스트는 결정적이고 오프라인에서 실행됩니다.
+`src/test/integration/` 아래에 위치합니다. `MSW`가 `/api/*`를, 주입 가능한
+AG-UI client seam이 `/agent`를 대체하므로 테스트는 결정적이고 오프라인입니다.
 
 ```text
 src/
@@ -83,7 +93,8 @@ src/
     │   └── server.ts
     └── integration/
         ├── search-flow.test.tsx
-        └── meals-flow.test.tsx
+        ├── meals-flow.test.tsx
+        └── analysis-chat.test.tsx
 ```
 
 > 참고: 프레젠테이션 컴포넌트(예: `Button`)와 한 줄짜리 유틸리티(`cn`)는
@@ -107,5 +118,7 @@ npm run test:coverage    # 커버리지 리포트 (HTML은 ./coverage)
 - **`/api/*` 호출이 404 / 네트워크 에러** — 개발 서버에서는 `../api`가
   `:8000`에서 실행 중이어야 합니다. 백엔드를 띄우거나 `vite.config.ts`의
   프록시 대상을 수정하세요.
+- **학교 후보/분석 요청 실패** — `../agent`가 `:8002`에서 실행 중이고 해당
+  서비스의 MCP·Foundry 설정과 Azure 인증이 유효한지 확인하세요.
 - **빌드 후 화면이 흰색** — `dist/`를 직접 열면 라우팅이 동작하지 않습니다.
   반드시 `npm run preview` 또는 nginx 컨테이너를 사용하세요.
