@@ -88,6 +88,10 @@ if ($Repository -notmatch "^[^/]+/[^/]+$") {
     throw "Repository must use the OWNER/REPO format."
 }
 
+$RepositoryParts = $Repository.Split("/", 2)
+$Owner = $RepositoryParts[0]
+$RepoName = $RepositoryParts[1]
+
 if ([string]::IsNullOrWhiteSpace($SubscriptionId)) {
     $SubscriptionId = Invoke-NativeText az @("account", "show", "--query", "id", "--output", "tsv")
 }
@@ -218,9 +222,19 @@ $federatedCredentialNames = @(
     "github-main",
     "github-pr"
 )
+
+$ownerId = $null
+try {
+    $ownerId = Invoke-NativeText gh @("api", "/users/$Owner", "--jq", ".id")
+} catch {
+    $ownerId = Invoke-NativeText gh @("api", "/orgs/$Owner", "--jq", ".id")
+}
+
+$repoId = Invoke-NativeText gh @("api", "/repos/$Owner/$RepoName", "--jq", ".id")
+
 $federatedCredentialSubjects = @(
-    "repo:$($Repository):ref:refs/heads/main",
-    "repo:$($Repository):pull_request"
+    "repo:$Owner@$ownerId/$RepoName@$repoId:ref:refs/heads/main",
+    "repo:$Owner@$ownerId/$RepoName@$repoId:pull_request"
 )
 
 for ($i = 0; $i -lt $federatedCredentialNames.Count; $i++) {

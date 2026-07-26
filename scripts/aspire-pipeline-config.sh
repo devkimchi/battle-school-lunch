@@ -80,6 +80,9 @@ if [[ "$REPOSITORY" != */* ]]; then
   exit 1
 fi
 
+OWNER="${REPOSITORY%%/*}"
+REPO_NAME="${REPOSITORY##*/}"
+
 if [[ -z "$SUBSCRIPTION_ID" ]]; then
   SUBSCRIPTION_ID="$(az account show --query id --output tsv)"
 fi
@@ -172,9 +175,17 @@ FEDERATED_CREDENTIAL_NAMES=(
   "github-main"
   "github-pr"
 )
+
+OWNER_ID="$(gh api "/users/$OWNER" --jq .id 2>/dev/null || true)"
+if [[ -z "$OWNER_ID" || "$OWNER_ID" == "null" ]]; then
+  OWNER_ID="$(gh api "/orgs/$OWNER" --jq .id)"
+fi
+
+REPO_ID="$(gh api "/repos/$OWNER/$REPO_NAME" --jq .id)"
+
 FEDERATED_CREDENTIAL_SUBJECTS=(
-  "repo:$REPOSITORY:ref:refs/heads/main"
-  "repo:$REPOSITORY:pull_request"
+  "repo:$OWNER@$OWNER_ID/$REPO_NAME@$REPO_ID:ref:refs/heads/main"
+  "repo:$OWNER@$OWNER_ID/$REPO_NAME@$REPO_ID:pull_request"
 )
 
 for ((i = 0; i < ${#FEDERATED_CREDENTIAL_NAMES[@]}; i++)); do
