@@ -174,7 +174,7 @@ declare -A FEDERATED_SUBJECTS=(
 )
 
 for cred_name in "${!FEDERATED_SUBJECTS[@]}"; do
-  cred_subject="${FEDERATED_SUBJECTS[$cred_name]}"
+  cred_subject="${FEDERATED_SUBJECTS["$cred_name"]}"
   existing_subject="$(az ad app federated-credential list \
     --id "$APP_ID" \
     --query "[?name=='$cred_name'].subject | [0]" \
@@ -225,7 +225,7 @@ echo "Azure deployment identity and GitHub Actions settings configured for $REPO
 echo "Entra application client ID: $APP_ID"
 echo "Federated subjects:"
 for cred_name in "${!FEDERATED_SUBJECTS[@]}"; do
-  echo "  $cred_name: ${FEDERATED_SUBJECTS[$cred_name]}"
+  echo "  $cred_name: ${FEDERATED_SUBJECTS["$cred_name"]}"
 done
 
 if [[ "$AZURE_DEPLOYMENT" == "true" ]]; then
