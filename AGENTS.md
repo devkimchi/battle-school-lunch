@@ -31,7 +31,6 @@ OpenAPI 기반 MCP 서버와 Microsoft Agent Framework 비교 분석 서비스 �
 ├── PRD.md        제품 요구사항
 ├── TRD.md        기술 요구사항
 ├── LICENSE       MIT 라이선스
-├── EVALUATION-RUBRIC.md 급식 분석 평가 기준 단일 원본
 ├── apphost.mts   Aspire TypeScript AppHost (api + mcp + agent + web)
 ├── aspire.config.json Aspire AppHost 설정
 ├── compose.yaml  Docker Compose: 네 컨테이너 앱 오케스트레이션
@@ -40,7 +39,7 @@ OpenAPI 기반 MCP 서버와 Microsoft Agent Framework 비교 분석 서비스 �
     ├── api/          FastAPI 백엔드 (Python 3.12+ / uv)
     ├── web/          React 19 + Vite + TypeScript + Tailwind v4 프런트엔드
     ├── mcp/          OpenAPI 기반 MCP 서버 (Python 3.12+ / uv)
-    ├── agent/        Agent Framework + AG-UI 분석 서비스 (Python 3.12+ / uv)
+    ├── agent/        Agent Framework 서비스와 EVALUATION-RUBRIC.md
     ├── e2e/          Playwright 엔드투엔드 테스트 (Chromium)
     └── openapi.json  백엔드·MCP 도구의 단일 NEIS Open API 명세
 ```
@@ -191,7 +190,7 @@ aspire destroy --environment production
   도구 스키마에 반영합니다. 동일한 스키마를 코드에 중복 정의하지 마세요.
   `NEIS_API_KEY`는 환경 변수로만 주입하고, NEIS 오류는 코드와 메시지가 포함된
   MCP 도구 오류로 전달합니다. 전송 방식은 `/mcp` 기반 Streamable HTTP입니다.
-- **Agent 서비스**: 사람용 평가 기준은 루트 `EVALUATION-RUBRIC.md`, 역할 지침은
+- **Agent 서비스**: 사람용 평가 기준은 `src/agent/EVALUATION-RUBRIC.md`, 역할 지침은
   `src/agent/instructions/*.md`에서 관리합니다. 전문 에이전트 점수는 1~5 정수이며
   45/30/25 환산과 총점은 코드가 계산합니다. Judge는 점수를 변경하지 않습니다.
   MCP와 Foundry는 반드시 경계에서 모킹하고 자격 증명을 web으로 전달하지 마세요.

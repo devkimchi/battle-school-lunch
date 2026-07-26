@@ -9,7 +9,6 @@
 ├── PRD.md       제품 요구사항
 ├── TRD.md       기술 요구사항
 ├── .devcontainer/ GitHub Codespaces 개발 환경
-├── EVALUATION-RUBRIC.md 급식 비교 평가 기준 단일 원본
 ├── apphost.mts  Aspire 오케스트레이션·Azure 배포 모델 (api + mcp + agent + web)
 ├── aspire.config.json Aspire AppHost 설정
 ├── compose.yaml Docker Compose 오케스트레이션
@@ -410,7 +409,6 @@ school-lunch/
 ├── SECURITY.md          취약점 신고 정책
 ├── apphost.mts          Aspire 로컬 오케스트레이션·Azure 배포 모델
 ├── aspire.config.json   Aspire AppHost 설정·통합 패키지
-├── EVALUATION-RUBRIC.md 분석 평가 기준과 가중치
 ├── compose.yaml         Docker Compose: api + mcp + agent + web
 ├── .env.example         NEIS·Foundry 환경 변수 템플릿
 └── src/
@@ -435,6 +433,7 @@ school-lunch/
     │   └── uv.lock
     ├── agent/
     │   ├── app/         AG-UI, MCP 데이터 준비, Concurrent + Judge workflow
+    │   ├── EVALUATION-RUBRIC.md 분석 평가 기준과 가중치
     │   ├── instructions/ 역할별 Markdown 지침
     │   ├── tests/       pytest 단위·통합 테스트
     │   └── Dockerfile

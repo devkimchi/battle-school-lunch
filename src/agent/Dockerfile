@@ -16,12 +16,12 @@ RUN apt-get update \
 COPY --from=ghcr.io/astral-sh/uv:0.11.32 /uv /usr/local/bin/uv
 
 WORKDIR /app
-COPY src/agent/pyproject.toml src/agent/uv.lock ./
+COPY agent/pyproject.toml agent/uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
-COPY src/agent/app ./app
-COPY src/agent/instructions ./instructions
-COPY EVALUATION-RUBRIC.md ./EVALUATION-RUBRIC.md
+COPY agent/app ./app
+COPY agent/instructions ./instructions
+COPY agent/EVALUATION-RUBRIC.md ./EVALUATION-RUBRIC.md
 RUN uv sync --frozen --no-dev
 
 FROM python:${PYTHON_VERSION}-slim-bookworm AS runtime

@@ -62,7 +62,7 @@ const agent = await builder
   .withUv()
   .publishAsDockerFile(async (container) => {
     await container
-      .withDockerfile('.', { dockerfilePath: 'src/agent/Dockerfile' })
+      .withDockerfile('./src', { dockerfilePath: 'agent/Dockerfile' })
       .withEndpointCallback('http', async (endpoint) => {
         await endpoint.targetPort.set(8000);
       });

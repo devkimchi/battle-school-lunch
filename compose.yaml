@@ -75,8 +75,8 @@ sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=2).s
 
   agent:
     build:
-      context: .
-      dockerfile: src/agent/Dockerfile
+      context: ./src
+      dockerfile: agent/Dockerfile
     image: school-lunch/agent:latest
     container_name: school-lunch-agent
     restart: unless-stopped
