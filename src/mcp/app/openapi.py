@@ -56,7 +56,11 @@ _SCHEMA_FIELDS = {
 
 
 def default_openapi_path() -> Path:
-    return Path(__file__).resolve().parents[2] / "openapi.json"
+    module_path = Path(__file__).resolve()
+    source_path = module_path.parents[2] / "openapi.json"
+    if source_path.is_file():
+        return source_path
+    return module_path.parents[1] / "openapi.json"
 
 
 def load_openapi_definition(path: Path | None = None) -> OpenApiDefinition:
