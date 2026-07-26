@@ -44,7 +44,7 @@ uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8002
 - Health: <http://127.0.0.1:8002/health>
 
 저장소 루트의 `npm run dev`를 사용하면 Aspire Foundry integration이 account,
-project와 `gpt-4.1-mini` deployment를 모델링하고 연결 정보와 추론 역할을 agent에
+project와 `gpt-5-mini` deployment를 모델링하고 연결 정보와 추론 역할을 agent에
 주입합니다. Aspire는 `mcp → agent → web` 순서로 준비 상태를 관리합니다.
 
 ## 테스트

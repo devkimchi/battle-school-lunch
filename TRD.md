@@ -251,7 +251,7 @@ src/mcp/
 | 웹·프로토콜 | FastAPI + `agent-framework-ag-ui` |
 | 에이전트 | Microsoft Agent Framework + `FoundryChatClient` |
 | 인증 | `DefaultAzureCredential` (로컬 Azure CLI, Azure 관리 ID) |
-| Aspire 리소스 | `Aspire.Hosting.Foundry` account + project + `gpt-4.1-mini` deployment |
+| Aspire 리소스 | `Aspire.Hosting.Foundry` account + project + `gpt-5-mini` deployment |
 | 데이터 도구 | `MCPStreamableHTTPTool` (`getSchoolInfo`, `getMealServiceDietInfo`만 허용) |
 | endpoint | `POST /agent` (SSE), `GET /health` |
 

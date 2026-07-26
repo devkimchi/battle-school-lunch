@@ -17,7 +17,7 @@ const foundry = await builder.addFoundry('foundry');
 const foundryProject = await foundry.addProject('foundry-project');
 const foundryModel = await foundryProject.addModelDeployment(
   'foundry-model',
-  FoundryModels.OpenAI.Gpt41Mini,
+  FoundryModels.OpenAI.Gpt5Mini,
 );
 
 const neisApiKey = await builder.addParameter('neis-api-key', {

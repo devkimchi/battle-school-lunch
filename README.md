@@ -61,7 +61,7 @@ Docker Compose도 동일한 변수를 읽습니다). MCP 서버도 같은 환경
 네이티브 또는 Docker Compose 실행에서는 `.env.example`의
 `FOUNDRY_PROJECT_ENDPOINT`와 `FOUNDRY_MODEL_DEPLOYMENT_NAME`도 설정하세요.
 Aspire 실행은 `Aspire.Hosting.Foundry`가 Foundry 프로젝트와
-`gpt-4.1-mini` deployment를 모델링해 연결 정보를 자동 주입합니다. 두 방식 모두
+`gpt-5-mini` deployment를 모델링해 연결 정보를 자동 주입합니다. 두 방식 모두
 `DefaultAzureCredential`을 사용하므로 로컬에서는 먼저 `az login`이 필요합니다.
 
 ### GitHub Codespaces
@@ -86,7 +86,7 @@ AppHost·API·웹·E2E 의존성과 Playwright Chromium은 최초 생성 시 준
 루트의 TypeScript AppHost는 API, MCP, agent를 Uvicorn 리소스로, React 앱을
 Vite 리소스로 실행합니다. `mcp → agent → web` 준비 순서를 적용하고 endpoint
 reference로 `/api`와 `/agent` 프록시를 연결합니다.
-AppHost는 Foundry account, project와 `gpt-4.1-mini` model deployment도 리소스로
+AppHost는 Foundry account, project와 `gpt-5-mini` model deployment도 리소스로
 모델링하고 agent에 project endpoint, deployment name과 최소 추론 역할을 연결합니다.
 
 ```bash
