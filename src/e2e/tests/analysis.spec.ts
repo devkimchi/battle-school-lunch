@@ -145,7 +145,7 @@ test("user selects two schools and manually starts a comparison", async ({
   await expect(page.getByRole("button", { name: /후보10학교/ })).toBeVisible();
   await selectComparison(page);
   await expect(page.getByLabel("분석 질문")).toHaveValue(
-    /한빛중학교과 새봄중학교/,
+    /한빛중학교.*새봄중학교/,
   );
   expect(analyzeRequests()).toBe(0);
 

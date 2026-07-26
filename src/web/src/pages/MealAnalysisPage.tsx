@@ -656,6 +656,8 @@ export default function MealAnalysisPage() {
               maxLength={10}
               pattern="\d{4}-\d{2}-\d{2}"
               placeholder="yyyy-mm-dd"
+              max={dateRange.max}
+              min={dateRange.min}
               aria-describedby="analysis-date-help"
               aria-invalid={dateInput.length > 0 && !selectedDate}
               value={dateInput}
