@@ -94,6 +94,7 @@ class AgentError(ApiModel):
 
 
 class AnalysisState(ApiModel):
+    action: Literal["load_candidates", "analyze"] | None = None
     phase: Literal[
         "idle",
         "loading_candidates",

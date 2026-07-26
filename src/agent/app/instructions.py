@@ -21,7 +21,7 @@ class InstructionLoader:
         instruction_dir: Path | None = None,
     ) -> None:
         module_path = Path(__file__).resolve()
-        self._rubric_path = rubric_path or module_path.parents[3] / "EVALUATION-RUBRIC.md"
+        self._rubric_path = rubric_path or self._find_rubric(module_path.parent)
         self._instruction_dir = instruction_dir or module_path.parents[1] / "instructions"
 
     def specialist(self, area: EvaluationArea) -> str:
@@ -44,3 +44,11 @@ class InstructionLoader:
         if not content:
             raise InstructionError(f"Agent instructions are empty at {path}")
         return content
+
+    @staticmethod
+    def _find_rubric(start: Path) -> Path:
+        for directory in (start, *start.parents):
+            candidate = directory / "EVALUATION-RUBRIC.md"
+            if candidate.is_file():
+                return candidate
+        raise InstructionError("Unable to locate EVALUATION-RUBRIC.md")

@@ -24,6 +24,17 @@ class McpCaller(Protocol):
     async def call_tool(self, tool_name: str, **kwargs: Any) -> str | list[Any]: ...
 
 
+class LunchDataSource(Protocol):
+    async def random_schools(self, count: int = 10) -> list[SchoolCandidate]: ...
+
+    async def meals_for(
+        self,
+        school_a: SchoolCandidate,
+        school_b: SchoolCandidate,
+        analysis_date: date,
+    ) -> tuple[MealData, MealData]: ...
+
+
 class McpLunchDataSource:
     def __init__(
         self,
