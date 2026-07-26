@@ -5,6 +5,8 @@ FROM python:${PYTHON_VERSION}-slim-bookworm AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DEBIAN_FRONTEND=noninteractive \
     UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
     UV_PROJECT_ENVIRONMENT=/app/.venv
@@ -16,6 +18,7 @@ RUN apt-get update \
 COPY --from=ghcr.io/astral-sh/uv:0.11.32 /uv /usr/local/bin/uv
 
 WORKDIR /app
+
 COPY agent/pyproject.toml agent/uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
@@ -36,12 +39,14 @@ RUN groupadd --system --gid 10001 appuser \
       --home-dir /app --shell /usr/sbin/nologin appuser
 
 WORKDIR /app
+
 COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
 COPY --from=builder --chown=appuser:appuser /app/app /app/app
 COPY --from=builder --chown=appuser:appuser /app/instructions /app/instructions
 COPY --from=builder --chown=appuser:appuser /app/EVALUATION-RUBRIC.md /app/EVALUATION-RUBRIC.md
 
 USER appuser
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
