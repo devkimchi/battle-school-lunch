@@ -214,13 +214,18 @@ foreach ($role in @("Contributor", "Role Based Access Control Administrator")) {
     }
 }
 
-$federatedSubjects = [ordered]@{
-    "github-main" = "repo:$($Repository):ref:refs/heads/main"
-    "github-pr"   = "repo:$($Repository):pull_request"
-}
+$federatedCredentialNames = @(
+    "github-main",
+    "github-pr"
+)
+$federatedCredentialSubjects = @(
+    "repo:$($Repository):ref:refs/heads/main",
+    "repo:$($Repository):pull_request"
+)
 
-foreach ($credName in $federatedSubjects.Keys) {
-    $credSubject = $federatedSubjects["$credName"]
+for ($i = 0; $i -lt $federatedCredentialNames.Count; $i++) {
+    $credName = $federatedCredentialNames[$i]
+    $credSubject = $federatedCredentialSubjects[$i]
     $existingSubject = Invoke-NativeText az @(
         "ad", "app", "federated-credential", "list",
         "--id", $AppId,
@@ -269,8 +274,8 @@ $secureApiKey = $null
 Write-Host "Azure deployment identity and GitHub Actions settings configured for $Repository."
 Write-Host "Entra application client ID: $AppId"
 Write-Host "Federated subjects:"
-foreach ($credName in $federatedSubjects.Keys) {
-    Write-Host "  ${credName}: $($federatedSubjects["$credName"])"
+for ($i = 0; $i -lt $federatedCredentialNames.Count; $i++) {
+    Write-Host "  $($federatedCredentialNames[$i]): $($federatedCredentialSubjects[$i])"
 }
 
 if ($EnableDeployment.IsPresent) {
