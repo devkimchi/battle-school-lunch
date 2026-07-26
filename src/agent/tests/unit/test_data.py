@@ -5,10 +5,22 @@ from typing import Any
 
 import pytest
 
-from app.data import LunchDataError, McpLunchDataSource
+from app.data import LunchDataError, McpLunchDataSource, _normalize_mcp_url
 from app.schemas import SchoolCandidate
 
 pytestmark = pytest.mark.unit
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("http://mcp:8000", "http://mcp:8000/mcp"),
+        ("http://mcp:8000/", "http://mcp:8000/mcp"),
+        ("http://mcp:8000/custom", "http://mcp:8000/custom"),
+    ],
+)
+def test_normalize_mcp_url(value: str, expected: str) -> None:
+    assert _normalize_mcp_url(value) == expected
 
 
 class StubMcp:

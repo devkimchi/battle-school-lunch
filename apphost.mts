@@ -18,6 +18,14 @@ const neisApiKey = await builder.addParameter('neis-api-key', {
   secret: true,
 });
 
+const foundryProjectEndpoint = await builder.addParameter('foundry-project-endpoint', {
+  value: process.env.FOUNDRY_PROJECT_ENDPOINT,
+});
+
+const foundryModelDeploymentName = await builder.addParameter('foundry-model-deployment-name', {
+  value: process.env.FOUNDRY_MODEL_DEPLOYMENT_NAME,
+});
+
 const api = await builder
   .addUvicornApp('api', './src/api', 'app.main:app')
   .withUv()
@@ -33,7 +41,7 @@ const api = await builder
 
 const apiEndpoint = api.getEndpoint('http');
 
-await builder
+const mcp = await builder
   .addUvicornApp('mcp', './src/mcp', 'app.main:app')
   .withUv()
   .publishAsDockerFile(async (container) => {
@@ -46,12 +54,37 @@ await builder
   .withEnvironment('NEIS_API_KEY', neisApiKey)
   .withHttpHealthCheck({ path: '/health' });
 
+const mcpEndpoint = mcp.getEndpoint('http');
+
+const agent = await builder
+  .addUvicornApp('agent', './src/agent', 'app.main:app')
+  .withUv()
+  .publishAsDockerFile(async (container) => {
+    await container
+      .withDockerfile('.', { dockerfilePath: 'src/agent/Dockerfile' })
+      .withEndpointCallback('http', async (endpoint) => {
+        await endpoint.targetPort.set(8000);
+      });
+  })
+  .withEnvironment('FOUNDRY_PROJECT_ENDPOINT', foundryProjectEndpoint)
+  .withEnvironment('FOUNDRY_MODEL_DEPLOYMENT_NAME', foundryModelDeploymentName)
+  .withEnvironment('MCP_URL', mcpEndpoint)
+  .withReference(mcp)
+  .waitFor(mcp)
+  .withHttpHealthCheck({ path: '/health' });
+
+const agentEndpoint = agent.getEndpoint('http');
+
 await builder
   .addViteApp('web', './src/web')
   .withEnvironment('API_URL', apiEndpoint)
   .withEnvironment('API_UPSTREAM', apiEndpoint)
+  .withEnvironment('AGENT_URL', agentEndpoint)
+  .withEnvironment('AGENT_UPSTREAM', agentEndpoint)
   .withReference(api)
+  .withReference(agent)
   .waitFor(api)
+  .waitFor(agent)
   .publishAsDockerFile(async (container) => {
     await container.withEndpointCallback('http', async (endpoint) => {
       await endpoint.targetPort.set(8080);

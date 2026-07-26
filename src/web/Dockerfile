@@ -15,9 +15,8 @@
 #
 # Required runtime env (passed to nginx via envsubst at startup by the
 # upstream `nginx-unprivileged` entrypoint):
-#   - API_UPSTREAM   e.g. "http://api:8000"  — where /api/* requests are
-#                    proxied. Defaults to http://api:8000 (matches the
-#                    docker-compose service name).
+#   - API_UPSTREAM     where /api/* requests are proxied.
+#   - AGENT_UPSTREAM   where /agent AG-UI requests are proxied.
 
 # -----------------------------------------------------------------------------
 # Stage 1: builder — produce the production bundle
@@ -54,7 +53,8 @@ FROM nginxinc/nginx-unprivileged:1.31-alpine AS runtime
 EXPOSE 8080
 
 # Default upstream — overridable at run time.
-ENV API_UPSTREAM=http://api:8000
+ENV API_UPSTREAM=http://api:8000 \
+    AGENT_UPSTREAM=http://agent:8000
 
 # Switch to root briefly to write into /etc/nginx and /usr/share/nginx,
 # then drop back to the unprivileged user.

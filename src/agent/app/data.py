@@ -8,6 +8,7 @@ from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from datetime import date
 from typing import Any, Protocol
+from urllib.parse import urlsplit, urlunsplit
 
 from agent_framework import MCPStreamableHTTPTool
 
@@ -35,6 +36,13 @@ class LunchDataSource(Protocol):
     ) -> tuple[MealData, MealData]: ...
 
 
+def _normalize_mcp_url(value: str) -> str:
+    parts = urlsplit(value)
+    if parts.path not in ("", "/"):
+        return value
+    return urlunsplit((parts.scheme, parts.netloc, "/mcp", parts.query, parts.fragment))
+
+
 class McpLunchDataSource:
     def __init__(
         self,
@@ -49,7 +57,7 @@ class McpLunchDataSource:
     def create(cls, mcp_url: str) -> tuple[MCPStreamableHTTPTool, McpLunchDataSource]:
         tool = MCPStreamableHTTPTool(
             "school-lunch-mcp",
-            mcp_url,
+            _normalize_mcp_url(mcp_url),
             allowed_tools=["getSchoolInfo", "getMealServiceDietInfo"],
             approval_mode="never_require",
             load_prompts=False,
