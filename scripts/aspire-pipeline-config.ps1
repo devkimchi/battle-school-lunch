@@ -15,8 +15,6 @@ param(
         else { "koreacentral" }
     ),
     [string]$AppName,
-    [string]$EnvironmentName = "production",
-    [string]$FederatedCredentialName = "github-production",
     [switch]$EnableDeployment
 )
 
@@ -216,44 +214,49 @@ foreach ($role in @("Contributor", "Role Based Access Control Administrator")) {
     }
 }
 
-$subject = "repo:$($Repository):environment:$EnvironmentName"
-$existingSubject = Invoke-NativeText az @(
-    "ad", "app", "federated-credential", "list",
-    "--id", $AppId,
-    "--query", "[?name=='$FederatedCredentialName'].subject | [0]",
-    "--output", "tsv"
+$federatedCredentialNames = @(
+    "github-main",
+    "github-pr"
+)
+$federatedCredentialSubjects = @(
+    "repo:$($Repository):ref:refs/heads/main",
+    "repo:$($Repository):pull_request"
 )
 
-if (
-    -not [string]::IsNullOrWhiteSpace($existingSubject) -and
-    $existingSubject -ne $subject
-) {
-    throw "Federated credential '$FederatedCredentialName' already uses '$existingSubject'."
-}
-
-if ([string]::IsNullOrWhiteSpace($existingSubject)) {
-    $credential = @{
-        name        = $FederatedCredentialName
-        issuer      = "https://token.actions.githubusercontent.com"
-        subject     = $subject
-        description = "GitHub Actions deployment"
-        audiences   = @("api://AzureADTokenExchange")
-    } | ConvertTo-Json -Compress
-
-    $null = Invoke-NativeText az @(
-        "ad", "app", "federated-credential", "create",
+for ($i = 0; $i -lt $federatedCredentialNames.Count; $i++) {
+    $credName = $federatedCredentialNames[$i]
+    $credSubject = $federatedCredentialSubjects[$i]
+    $existingSubject = Invoke-NativeText az @(
+        "ad", "app", "federated-credential", "list",
         "--id", $AppId,
-        "--parameters", $credential,
-        "--output", "none"
+        "--query", "[?name=='$credName'].subject | [0]",
+        "--output", "tsv"
     )
-}
 
-$null = Invoke-NativeText gh @(
-    "api",
-    "--method", "PUT",
-    "repos/$Repository/environments/$EnvironmentName",
-    "--silent"
-)
+    if (
+        -not [string]::IsNullOrWhiteSpace($existingSubject) -and
+        $existingSubject -ne $credSubject
+    ) {
+        throw "Federated credential '$credName' already uses '$existingSubject'."
+    }
+
+    if ([string]::IsNullOrWhiteSpace($existingSubject)) {
+        $credential = @{
+            name        = $credName
+            issuer      = "https://token.actions.githubusercontent.com"
+            subject     = $credSubject
+            description = "GitHub Actions deployment"
+            audiences   = @("api://AzureADTokenExchange")
+        } | ConvertTo-Json -Compress
+
+        $null = Invoke-NativeText az @(
+            "ad", "app", "federated-credential", "create",
+            "--id", $AppId,
+            "--parameters", $credential,
+            "--output", "none"
+        )
+    }
+}
 
 Set-GitHubSecret -Name "NEIS_API_KEY" -Value $NeisApiKey -TargetRepository $Repository
 
@@ -270,7 +273,10 @@ $secureApiKey = $null
 
 Write-Host "Azure deployment identity and GitHub Actions settings configured for $Repository."
 Write-Host "Entra application client ID: $AppId"
-Write-Host "Federated subject: $subject"
+Write-Host "Federated subjects:"
+for ($i = 0; $i -lt $federatedCredentialNames.Count; $i++) {
+    Write-Host "  $($federatedCredentialNames[$i]): $($federatedCredentialSubjects[$i])"
+}
 
 if ($EnableDeployment.IsPresent) {
     Write-Host "You can now push your commit to the remote repository to trigger deployment."
