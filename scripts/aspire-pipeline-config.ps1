@@ -220,7 +220,7 @@ $federatedSubjects = [ordered]@{
 }
 
 foreach ($credName in $federatedSubjects.Keys) {
-    $credSubject = $federatedSubjects[$credName]
+    $credSubject = $federatedSubjects["$credName"]
     $existingSubject = Invoke-NativeText az @(
         "ad", "app", "federated-credential", "list",
         "--id", $AppId,
@@ -270,7 +270,7 @@ Write-Host "Azure deployment identity and GitHub Actions settings configured for
 Write-Host "Entra application client ID: $AppId"
 Write-Host "Federated subjects:"
 foreach ($credName in $federatedSubjects.Keys) {
-    Write-Host "  ${credName}: $($federatedSubjects[$credName])"
+    Write-Host "  ${credName}: $($federatedSubjects["$credName"])"
 }
 
 if ($EnableDeployment.IsPresent) {
