@@ -175,9 +175,19 @@ describe("Meal analysis", () => {
     expect(screen.getByLabelText("중식 날짜")).toHaveValue(
       allowedAnalysisDates().max,
     );
+    const calendarButton = screen.getByRole("button", {
+      name: "달력에서 날짜 선택",
+    });
+    expect(calendarButton).toBeEnabled();
+    await user.click(calendarButton);
     expect(
-      screen.getByRole("button", { name: "달력에서 날짜 선택" }),
-    ).toBeEnabled();
+      screen.getByRole("dialog", { name: "날짜 선택 달력" }),
+    ).toBeInTheDocument();
+    expect(calendarButton).toHaveAttribute("aria-expanded", "true");
+    await user.keyboard("{Escape}");
+    expect(
+      screen.queryByRole("dialog", { name: "날짜 선택 달력" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /3번학교/ })).toBeDisabled();
     expect(screen.getByLabelText("분석 질문")).toHaveValue(
       `${allowedAnalysisDates().max} 중식을 기준으로 1번학교과 2번학교의 급식을 비교 분석해 주세요.`,

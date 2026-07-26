@@ -7,6 +7,7 @@ import {
   Send,
   Trophy,
 } from "lucide-react";
+import { format, parseISO } from "date-fns";
 import {
   useEffect,
   useCallback,
@@ -16,6 +17,7 @@ import {
   type FormEvent,
 } from "react";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Card,
   CardContent,
@@ -332,7 +334,8 @@ export default function MealAnalysisPage() {
   const [submittedPrompt, setSubmittedPrompt] = useState("");
   const [transportError, setTransportError] = useState("");
   const [isRunning, setIsRunning] = useState(false);
-  const datePicker = useRef<HTMLInputElement>(null);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const dateControl = useRef<HTMLDivElement>(null);
   const dateRange = useMemo(() => allowedAnalysisDates(), []);
   const selectedSchools = useMemo(
     () =>
@@ -364,6 +367,28 @@ export default function MealAnalysisPage() {
     setInput(generatedPrompt);
   }, [generatedPrompt]);
 
+  useEffect(() => {
+    if (!calendarOpen) return;
+
+    const dismissCalendar = (event: PointerEvent) => {
+      if (!dateControl.current?.contains(event.target as Node)) {
+        setCalendarOpen(false);
+      }
+    };
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setCalendarOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", dismissCalendar);
+    document.addEventListener("keydown", dismissOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", dismissCalendar);
+      document.removeEventListener("keydown", dismissOnEscape);
+    };
+  }, [calendarOpen]);
+
   const toggleSchool = (schoolCode: string) => {
     setSelectedCodes((current) => {
       if (current.includes(schoolCode)) {
@@ -372,6 +397,7 @@ export default function MealAnalysisPage() {
       if (current.length >= 2) return current;
       return [...current, schoolCode];
     });
+    setCalendarOpen(false);
     setSubmittedPrompt("");
     setState((current) => ({ ...current, result: null, error: null }));
   };
@@ -501,6 +527,7 @@ export default function MealAnalysisPage() {
                     setSelectedCodes([]);
                     setDateInput("");
                     setSelectedDate("");
+                    setCalendarOpen(false);
                     setSubmittedPrompt("");
                     void loadCandidates();
                   }}
@@ -525,7 +552,7 @@ export default function MealAnalysisPage() {
           <label htmlFor="analysis-date" className="mb-2 block text-sm font-medium">
             중식 날짜
           </label>
-          <div className="relative max-w-xs">
+          <div ref={dateControl} className="relative max-w-xs">
             <Input
               id="analysis-date"
               type="text"
@@ -546,23 +573,44 @@ export default function MealAnalysisPage() {
               size="icon"
               variant="ghost"
               aria-label="달력에서 날짜 선택"
+              aria-controls="analysis-date-calendar"
+              aria-expanded={calendarOpen}
               disabled={selectedCodes.length !== 2 || isRunning}
-              onClick={() => datePicker.current?.showPicker()}
+              onClick={() => setCalendarOpen((open) => !open)}
               className="absolute inset-y-0 right-0 h-10 w-10 rounded-l-none"
             >
               <CalendarDays aria-hidden="true" className="size-4" />
             </Button>
-            <input
-              ref={datePicker}
-              type="date"
-              min={dateRange.min}
-              max={dateRange.max}
-              value={selectedDate}
-              tabIndex={-1}
-              aria-hidden="true"
-              hidden
-              onChange={(event) => updateDate(event.target.value)}
-            />
+            {calendarOpen ? (
+              <div
+                id="analysis-date-calendar"
+                role="dialog"
+                aria-label="날짜 선택 달력"
+                className="absolute bottom-full left-0 z-50 mb-2 rounded-lg border bg-[var(--color-card)] p-3 shadow-lg"
+              >
+                <Calendar
+                  mode="single"
+                  autoFocus
+                  selected={selectedDate ? parseISO(selectedDate) : undefined}
+                  defaultMonth={
+                    selectedDate
+                      ? parseISO(selectedDate)
+                      : parseISO(dateRange.max)
+                  }
+                  startMonth={parseISO(dateRange.min)}
+                  endMonth={parseISO(dateRange.max)}
+                  disabled={{
+                    before: parseISO(dateRange.min),
+                    after: parseISO(dateRange.max),
+                  }}
+                  onSelect={(date) => {
+                    if (!date) return;
+                    updateDate(format(date, "yyyy-MM-dd"));
+                    setCalendarOpen(false);
+                  }}
+                />
+              </div>
+            ) : null}
           </div>
           <p
             id="analysis-date-help"
