@@ -127,7 +127,26 @@ uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 
 - MCP: <http://127.0.0.1:8001/mcp>
 - Health: <http://127.0.0.1:8001/health>
-- 상세 연결 예시: [`src/mcp/README.md`](./src/mcp/README.md)
+
+#### MCP Inspector로 연결
+
+MCP 서버를 네이티브, Aspire 또는 Docker Compose 방식으로 먼저 실행한 뒤 별도
+터미널에서 Inspector를 시작합니다.
+
+```bash
+npx -y @modelcontextprotocol/inspector
+```
+
+Inspector에서 transport를 `Streamable HTTP`로 선택하고 실행 방식에 맞는 URL을
+입력합니다.
+
+- 네이티브 / Docker Compose: `http://127.0.0.1:8001/mcp`
+  (`MCP_PORT`를 변경했다면 해당 포트 사용)
+- Aspire: 대시보드에 표시된 `mcp` HTTPS URL 뒤에 `/mcp` 추가
+
+연결 후 **Tools**에서 `getSchoolInfo`, `getMealServiceDietInfo`를 조회하고 직접
+호출할 수 있습니다. Python SDK 연결 예시는
+[`src/mcp/README.md`](./src/mcp/README.md)를 참고하세요.
 
 ### 2.3 Docker Compose (운영 스타일, 세 서비스를 함께)
 
