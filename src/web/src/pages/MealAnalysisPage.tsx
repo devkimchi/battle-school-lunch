@@ -10,6 +10,7 @@ import { format, parseISO } from "date-fns";
 import {
   useEffect,
   useCallback,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -344,6 +345,7 @@ export default function MealAnalysisPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const dateControl = useRef<HTMLDivElement>(null);
+  const analysisInput = useRef<HTMLTextAreaElement>(null);
   const dateRange = useMemo(() => allowedAnalysisDates(), []);
   const selectedSchools = useMemo(
     () =>
@@ -374,6 +376,30 @@ export default function MealAnalysisPage() {
   useEffect(() => {
     setInput(generatedPrompt);
   }, [generatedPrompt]);
+
+  useLayoutEffect(() => {
+    const textarea = analysisInput.current;
+    if (!textarea) return;
+
+    textarea.style.height = "auto";
+    const styles = window.getComputedStyle(textarea);
+    const pixels = (value: string) => Number.parseFloat(value) || 0;
+    const lineHeight = pixels(styles.lineHeight) || 20;
+    const chromeHeight =
+      pixels(styles.paddingTop) +
+      pixels(styles.paddingBottom) +
+      pixels(styles.borderTopWidth) +
+      pixels(styles.borderBottomWidth);
+    const minHeight = lineHeight * 2 + chromeHeight;
+    const maxHeight = lineHeight * 5 + chromeHeight;
+    const contentHeight =
+      textarea.scrollHeight +
+      pixels(styles.borderTopWidth) +
+      pixels(styles.borderBottomWidth);
+
+    textarea.style.height = `${Math.min(Math.max(contentHeight, minHeight), maxHeight)}px`;
+    textarea.style.overflowY = contentHeight > maxHeight ? "auto" : "hidden";
+  }, [input]);
 
   useEffect(() => {
     if (!calendarOpen) return;
@@ -662,6 +688,7 @@ export default function MealAnalysisPage() {
           className={`flex items-end gap-3 p-4 ${showConversationStatus ? "border-t" : ""}`}
         >
           <textarea
+            ref={analysisInput}
             aria-label="분석 질문"
             value={input}
             onChange={(event) => setInput(event.target.value)}

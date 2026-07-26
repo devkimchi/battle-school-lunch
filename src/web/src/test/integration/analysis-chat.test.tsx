@@ -162,6 +162,7 @@ describe("Meal analysis", () => {
     expect(
       screen.queryByText("선택을 마치고 분석을 요청하세요"),
     ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("분석 질문")).toHaveAttribute("rows", "2");
     expect(agentMock.loadCandidates).toHaveBeenCalledOnce();
   });
 
