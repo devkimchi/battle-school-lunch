@@ -5,7 +5,12 @@ from typing import Any
 
 import pytest
 
-from app.data import LunchDataError, McpLunchDataSource, _normalize_mcp_url
+from app.data import (
+    LunchDataError,
+    McpLunchDataSource,
+    _decode_tool_result,
+    _normalize_mcp_url,
+)
 from app.schemas import SchoolCandidate
 
 pytestmark = pytest.mark.unit
@@ -30,6 +35,31 @@ class StubMcp:
     async def call_tool(self, tool_name: str, **kwargs: Any) -> str:
         key = (tool_name, int(kwargs.get("pIndex", 1)))
         return json.dumps(self._responses[key], ensure_ascii=False)
+
+
+class TextContent:
+    def __init__(self, text: str) -> None:
+        self.text = text
+
+
+def test_decode_tool_result_accepts_duplicate_text_and_structured_content() -> None:
+    payload = {"schoolInfo": [{"row": [{"SCHUL_NM": "가학교"}]}]}
+    result = [
+        TextContent(json.dumps(payload, ensure_ascii=False)),
+        TextContent(json.dumps(payload)),
+    ]
+
+    assert _decode_tool_result(result) == payload
+
+
+def test_decode_tool_result_rejects_conflicting_content() -> None:
+    result = [
+        TextContent(json.dumps({"value": 1})),
+        TextContent(json.dumps({"value": 2})),
+    ]
+
+    with pytest.raises(LunchDataError, match="conflicting"):
+        _decode_tool_result(result)
 
 
 def school_payload(start: int, count: int, total: int) -> dict[str, Any]:

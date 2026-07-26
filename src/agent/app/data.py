@@ -147,20 +147,32 @@ class McpLunchDataSource:
 
 def _decode_tool_result(result: str | list[Any]) -> dict[str, Any]:
     if isinstance(result, str):
-        text = result
+        text_parts = [result]
     else:
         text_parts = [
             item.text
             for item in result
             if isinstance(getattr(item, "text", None), str)
         ]
-        text = "".join(text_parts)
-    try:
-        payload = json.loads(text)
-    except (TypeError, json.JSONDecodeError) as exc:
-        raise LunchDataError("MCP returned an invalid JSON tool result.") from exc
-    if not isinstance(payload, dict):
+
+    payloads: list[dict[str, Any]] = []
+    parsed_json = False
+    for text in text_parts:
+        try:
+            payload = json.loads(text)
+        except (TypeError, json.JSONDecodeError):
+            continue
+        parsed_json = True
+        if isinstance(payload, dict):
+            payloads.append(payload)
+
+    if not parsed_json:
+        raise LunchDataError("MCP returned an invalid JSON tool result.")
+    if not payloads:
         raise LunchDataError("MCP tool result must be a JSON object.")
+    payload = payloads[0]
+    if any(candidate != payload for candidate in payloads[1:]):
+        raise LunchDataError("MCP returned conflicting JSON tool results.")
     if "code" in payload and "message" in payload:
         raise LunchDataError(f"MCP error {payload['code']}: {payload['message']}")
     return payload
