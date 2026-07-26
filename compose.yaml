@@ -3,8 +3,8 @@ name: school-lunch
 services:
   api:
     build:
-      context: ./src/api
-      dockerfile: Dockerfile
+      context: ./src
+      dockerfile: api/Dockerfile
     image: school-lunch/api:latest
     container_name: school-lunch-api
     restart: unless-stopped

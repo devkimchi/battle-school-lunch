@@ -23,16 +23,10 @@ const api = await builder
   .withUv()
   .publishAsDockerFile(async (container) => {
     await container
-      .withEntrypoint('uvicorn')
-      .withArgs([
-        'app.main:app',
-        '--host',
-        '0.0.0.0',
-        '--port',
-        '8000',
-        '--proxy-headers',
-        '--forwarded-allow-ips=*',
-      ]);
+      .withDockerfile('./src', { dockerfilePath: 'api/Dockerfile' })
+      .withEndpointCallback('http', async (endpoint) => {
+        await endpoint.targetPort.set(8000);
+      });
   })
   .withEnvironment('NEIS_API_KEY', neisApiKey)
   .withHttpHealthCheck({ path: '/api/health' });
