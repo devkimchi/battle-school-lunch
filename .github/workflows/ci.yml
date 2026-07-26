@@ -106,11 +106,11 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci
-      - run: npm run build
       - name: Install Aspire CLI
         run: |
           curl -sSL https://aspire.dev/install.sh | bash
           echo "$HOME/.aspire/bin" >> "$GITHUB_PATH"
+      - run: npm run build
       - name: Sign in to Azure
         uses: azure/login@v2
         with:
