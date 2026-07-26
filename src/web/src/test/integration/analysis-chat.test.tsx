@@ -168,6 +168,16 @@ describe("Meal analysis", () => {
 
     await chooseComparison(user);
 
+    expect(screen.getByLabelText("중식 날짜")).toHaveAttribute(
+      "placeholder",
+      "yyyy-mm-dd",
+    );
+    expect(screen.getByLabelText("중식 날짜")).toHaveValue(
+      allowedAnalysisDates().max,
+    );
+    expect(
+      screen.getByRole("button", { name: "달력에서 날짜 선택" }),
+    ).toBeEnabled();
     expect(screen.getByRole("button", { name: /3번학교/ })).toBeDisabled();
     expect(screen.getByLabelText("분석 질문")).toHaveValue(
       `${allowedAnalysisDates().max} 중식을 기준으로 1번학교과 2번학교의 급식을 비교 분석해 주세요.`,

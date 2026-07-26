@@ -1,6 +1,7 @@
 import {
   AlertCircle,
   Bot,
+  CalendarDays,
   LoaderCircle,
   RefreshCw,
   Send,
@@ -58,6 +59,15 @@ function comparisonPrompt(
 ): string {
   if (selectedSchools.length !== 2 || !selectedDate) return "";
   return `${selectedDate} 중식을 기준으로 ${selectedSchools[0].schoolName}과 ${selectedSchools[1].schoolName}의 급식을 비교 분석해 주세요.`;
+}
+
+function isAllowedDate(value: string, min: string, max: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < min || value > max) {
+    return false;
+  }
+
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
 function ErrorNotice({
@@ -316,11 +326,13 @@ export default function MealAnalysisPage() {
   const agentClient = client.current;
   const [state, setState] = useState<AnalysisState>(INITIAL_ANALYSIS_STATE);
   const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
+  const [dateInput, setDateInput] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [input, setInput] = useState("");
   const [submittedPrompt, setSubmittedPrompt] = useState("");
   const [transportError, setTransportError] = useState("");
   const [isRunning, setIsRunning] = useState(false);
+  const datePicker = useRef<HTMLInputElement>(null);
   const dateRange = useMemo(() => allowedAnalysisDates(), []);
   const selectedSchools = useMemo(
     () =>
@@ -362,6 +374,19 @@ export default function MealAnalysisPage() {
     });
     setSubmittedPrompt("");
     setState((current) => ({ ...current, result: null, error: null }));
+  };
+
+  const updateDate = (value: string) => {
+    setDateInput(value);
+    setSelectedDate(
+      isAllowedDate(value, dateRange.min, dateRange.max) ? value : "",
+    );
+    setSubmittedPrompt("");
+    setState((current) => ({
+      ...current,
+      result: null,
+      error: null,
+    }));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -474,6 +499,7 @@ export default function MealAnalysisPage() {
                   disabled={isRunning}
                   onClick={() => {
                     setSelectedCodes([]);
+                    setDateInput("");
                     setSelectedDate("");
                     setSubmittedPrompt("");
                     void loadCandidates();
@@ -499,26 +525,51 @@ export default function MealAnalysisPage() {
           <label htmlFor="analysis-date" className="mb-2 block text-sm font-medium">
             중식 날짜
           </label>
-          <Input
-            id="analysis-date"
-            type="date"
-            min={dateRange.min}
-            max={dateRange.max}
-            value={selectedDate}
-            disabled={selectedCodes.length !== 2 || isRunning}
-            onChange={(event) => {
-              setSelectedDate(event.target.value);
-              setSubmittedPrompt("");
-              setState((current) => ({
-                ...current,
-                result: null,
-                error: null,
-              }));
-            }}
-            className="max-w-xs"
-          />
-          <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
+          <div className="relative max-w-xs">
+            <Input
+              id="analysis-date"
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={10}
+              pattern="\d{4}-\d{2}-\d{2}"
+              placeholder="yyyy-mm-dd"
+              aria-describedby="analysis-date-help"
+              aria-invalid={dateInput.length > 0 && !selectedDate}
+              value={dateInput}
+              disabled={selectedCodes.length !== 2 || isRunning}
+              onChange={(event) => updateDate(event.target.value)}
+              className="pr-11"
+            />
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              aria-label="달력에서 날짜 선택"
+              disabled={selectedCodes.length !== 2 || isRunning}
+              onClick={() => datePicker.current?.showPicker()}
+              className="absolute inset-y-0 right-0 h-10 w-10 rounded-l-none"
+            >
+              <CalendarDays aria-hidden="true" className="size-4" />
+            </Button>
+            <input
+              ref={datePicker}
+              type="date"
+              min={dateRange.min}
+              max={dateRange.max}
+              value={selectedDate}
+              tabIndex={-1}
+              aria-hidden="true"
+              hidden
+              onChange={(event) => updateDate(event.target.value)}
+            />
+          </div>
+          <p
+            id="analysis-date-help"
+            className="mt-2 text-xs text-[var(--color-muted-foreground)]"
+          >
             선택 가능: {dateRange.min} ~ {dateRange.max}
+            {dateInput && !selectedDate ? " · yyyy-mm-dd 형식으로 입력해 주세요." : ""}
           </p>
         </CardContent>
       </Card>
