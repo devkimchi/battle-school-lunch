@@ -2,6 +2,7 @@ import { Link, Route, Routes, useLocation } from "react-router-dom";
 import LandingPage from "@/pages/LandingPage";
 import DateRangePage from "@/pages/DateRangePage";
 import MealsResultPage from "@/pages/MealsResultPage";
+import MealAnalysisPage from "@/pages/MealAnalysisPage";
 
 export default function App() {
   const { pathname } = useLocation();
@@ -47,6 +48,7 @@ export default function App() {
             path="/school/:schoolCode/meals"
             element={<MealsResultPage />}
           />
+          <Route path="/analysis" element={<MealAnalysisPage />} />
         </Routes>
       </main>
     </div>
