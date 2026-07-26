@@ -162,8 +162,39 @@ describe("Meal analysis", () => {
     expect(
       screen.queryByText("선택을 마치고 분석을 요청하세요"),
     ).not.toBeInTheDocument();
-    expect(screen.getByLabelText("분석 질문")).toHaveAttribute("rows", "2");
+    expect(screen.queryByLabelText("중식 날짜")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("분석 질문")).not.toBeInTheDocument();
     expect(agentMock.loadCandidates).toHaveBeenCalledOnce();
+  });
+
+  it("opens each setup step after the previous selection is complete", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { initialEntries: ["/analysis"] });
+
+    await user.click(await screen.findByRole("button", { name: /1번학교/ }));
+    expect(screen.queryByLabelText("중식 날짜")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /2번학교/ }));
+    expect(screen.queryByRole("button", { name: /1번학교/ })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("중식 날짜")).toBeInTheDocument();
+    expect(screen.queryByLabelText("분석 질문")).not.toBeInTheDocument();
+
+    await user.type(
+      screen.getByLabelText("중식 날짜"),
+      allowedAnalysisDates().max,
+    );
+    expect(screen.queryByLabelText("중식 날짜")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("분석 질문")).toHaveAttribute("rows", "2");
+
+    await user.click(screen.getByRole("button", { name: "날짜 변경" }));
+    expect(screen.getByLabelText("중식 날짜")).toHaveValue(
+      allowedAnalysisDates().max,
+    );
+    expect(screen.queryByLabelText("분석 질문")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "학교 선택 변경" }));
+    expect(screen.getByRole("button", { name: /1번학교/ })).toBeInTheDocument();
+    expect(screen.queryByLabelText("중식 날짜")).not.toBeInTheDocument();
   });
 
   it("limits school selection and prepares a prompt without sending it", async () => {
@@ -171,6 +202,7 @@ describe("Meal analysis", () => {
     renderWithProviders(<App />, { initialEntries: ["/analysis"] });
 
     await chooseComparison(user);
+    await user.click(screen.getByRole("button", { name: "날짜 변경" }));
 
     expect(screen.getByLabelText("중식 날짜")).toHaveAttribute(
       "placeholder",
@@ -192,7 +224,9 @@ describe("Meal analysis", () => {
     expect(
       screen.queryByRole("dialog", { name: "날짜 선택 달력" }),
     ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "학교 선택 변경" }));
     expect(screen.getByRole("button", { name: /3번학교/ })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "분석 질문 열기" }));
     expect(screen.getByLabelText("분석 질문")).toHaveValue(
       `${allowedAnalysisDates().max} 중식을 기준으로 1번학교 (서울특별시 · 서울특별시교육청 · 학교 코드 S1)와 2번학교 (서울특별시 · 서울특별시교육청 · 학교 코드 S2)의 급식을 비교 분석해 주세요.`,
     );

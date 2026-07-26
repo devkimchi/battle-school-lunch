@@ -81,6 +81,38 @@ function isAllowedDate(value: string, min: string, max: string): boolean {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
+type AnalysisStep = 1 | 2 | 3;
+
+function StepHeader({
+  title,
+  description,
+  active,
+  changeLabel,
+  onOpen,
+}: {
+  title: string;
+  description: string;
+  active: boolean;
+  changeLabel?: string;
+  onOpen: () => void;
+}) {
+  return (
+    <CardHeader>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1.5">
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </div>
+        {!active && changeLabel ? (
+          <Button type="button" size="sm" variant="ghost" onClick={onOpen}>
+            {changeLabel}
+          </Button>
+        ) : null}
+      </div>
+    </CardHeader>
+  );
+}
+
 function ErrorNotice({
   message,
   onRetry,
@@ -344,6 +376,7 @@ export default function MealAnalysisPage() {
   const [transportError, setTransportError] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [activeStep, setActiveStep] = useState<AnalysisStep>(1);
   const dateControl = useRef<HTMLDivElement>(null);
   const analysisInput = useRef<HTMLTextAreaElement>(null);
   const dateRange = useMemo(() => allowedAnalysisDates(), []);
@@ -424,23 +457,27 @@ export default function MealAnalysisPage() {
   }, [calendarOpen]);
 
   const toggleSchool = (schoolCode: string) => {
-    setSelectedCodes((current) => {
-      if (current.includes(schoolCode)) {
-        return current.filter((code) => code !== schoolCode);
-      }
-      if (current.length >= 2) return current;
-      return [...current, schoolCode];
-    });
+    const nextCodes = selectedCodes.includes(schoolCode)
+      ? selectedCodes.filter((code) => code !== schoolCode)
+      : selectedCodes.length < 2
+        ? [...selectedCodes, schoolCode]
+        : selectedCodes;
+    setSelectedCodes(nextCodes);
+    setDateInput("");
+    setSelectedDate("");
+    setActiveStep(nextCodes.length === 2 ? 2 : 1);
     setCalendarOpen(false);
     setSubmittedPrompt("");
     setState((current) => ({ ...current, result: null, error: null }));
   };
 
   const updateDate = (value: string) => {
+    const validDate = isAllowedDate(value, dateRange.min, dateRange.max)
+      ? value
+      : "";
     setDateInput(value);
-    setSelectedDate(
-      isAllowedDate(value, dateRange.min, dateRange.max) ? value : "",
-    );
+    setSelectedDate(validDate);
+    setActiveStep(validDate ? 3 : 2);
     setSubmittedPrompt("");
     setState((current) => ({
       ...current,
@@ -498,92 +535,109 @@ export default function MealAnalysisPage() {
       </header>
 
       <Card>
-        <CardHeader>
-          <CardTitle>1. 비교할 학교 두 곳을 선택하세요</CardTitle>
-          <CardDescription>
-            MCP 서버에서 무작위로 가져온 후보 10곳입니다. 선택은 최대 두
-            곳까지 가능합니다.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {state.phase === "loading_candidates" ||
-          (isRunning && state.candidates.length === 0) ? (
-            <div
-              role="status"
-              className="flex items-center gap-2 py-8 text-sm text-[var(--color-muted-foreground)]"
-            >
-              <LoaderCircle aria-hidden="true" className="size-5 animate-spin" />
-              학교 후보를 불러오고 있어요.
-            </div>
-          ) : null}
-          {currentError && state.candidates.length === 0 ? (
-            <ErrorNotice message={currentError} onRetry={loadCandidates} />
-          ) : null}
-          {state.candidates.length > 0 ? (
-            <>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {state.candidates.map((school) => {
-                  const selected = selectedCodes.includes(school.schoolCode);
-                  const disabled = !selected && selectedCodes.length >= 2;
-                  return (
-                    <button
-                      key={school.schoolCode}
-                      type="button"
-                      aria-pressed={selected}
-                      disabled={disabled}
-                      onClick={() => toggleSchool(school.schoolCode)}
-                      className={`rounded-lg border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
-                        selected
-                          ? "border-emerald-600 bg-emerald-50 ring-1 ring-emerald-600"
-                          : "hover:bg-[var(--color-muted)]"
-                      }`}
-                    >
-                      <span className="block font-semibold">
-                        {school.schoolName}
-                      </span>
-                      <span className="mt-1 block text-xs text-[var(--color-muted-foreground)]">
-                        {school.eduOfficeName}
-                        {school.locationName ? ` · ${school.locationName}` : ""}
-                      </span>
-                    </button>
-                  );
-                })}
+        <StepHeader
+          title="1. 비교할 학교 두 곳을 선택하세요"
+          description={
+            selectedSchools.length === 2
+              ? `${selectedSchools[0].schoolName} · ${selectedSchools[1].schoolName}`
+              : "MCP 서버에서 무작위로 가져온 후보 10곳입니다. 선택은 최대 두 곳까지 가능합니다."
+          }
+          active={activeStep === 1}
+          changeLabel={
+            selectedCodes.length === 2 && !isRunning ? "학교 선택 변경" : undefined
+          }
+          onOpen={() => setActiveStep(1)}
+        />
+        {activeStep === 1 ? (
+          <CardContent>
+            {state.phase === "loading_candidates" ||
+            (isRunning && state.candidates.length === 0) ? (
+              <div
+                role="status"
+                className="flex items-center gap-2 py-8 text-sm text-[var(--color-muted-foreground)]"
+              >
+                <LoaderCircle aria-hidden="true" className="size-5 animate-spin" />
+                학교 후보를 불러오고 있어요.
               </div>
-              <div className="mt-4 flex items-center justify-between">
-                <p aria-live="polite" className="text-sm">
-                  {selectedCodes.length} / 2개 학교 선택
-                </p>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  disabled={isRunning}
-                  onClick={() => {
-                    setSelectedCodes([]);
-                    setDateInput("");
-                    setSelectedDate("");
-                    setCalendarOpen(false);
-                    setSubmittedPrompt("");
-                    void loadCandidates();
-                  }}
-                >
-                  <RefreshCw aria-hidden="true" className="size-4" />
-                  후보 새로고침
-                </Button>
-              </div>
-            </>
-          ) : null}
-        </CardContent>
+            ) : null}
+            {currentError && state.candidates.length === 0 ? (
+              <ErrorNotice message={currentError} onRetry={loadCandidates} />
+            ) : null}
+            {state.candidates.length > 0 ? (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {state.candidates.map((school) => {
+                    const selected = selectedCodes.includes(school.schoolCode);
+                    const disabled = !selected && selectedCodes.length >= 2;
+                    return (
+                      <button
+                        key={school.schoolCode}
+                        type="button"
+                        aria-pressed={selected}
+                        disabled={disabled}
+                        onClick={() => toggleSchool(school.schoolCode)}
+                        className={`rounded-lg border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+                          selected
+                            ? "border-emerald-600 bg-emerald-50 ring-1 ring-emerald-600"
+                            : "hover:bg-[var(--color-muted)]"
+                        }`}
+                      >
+                        <span className="block font-semibold">
+                          {school.schoolName}
+                        </span>
+                        <span className="mt-1 block text-xs text-[var(--color-muted-foreground)]">
+                          {school.eduOfficeName}
+                          {school.locationName ? ` · ${school.locationName}` : ""}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-4 flex items-center justify-between">
+                  <p aria-live="polite" className="text-sm">
+                    {selectedCodes.length} / 2개 학교 선택
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={isRunning}
+                    onClick={() => {
+                      setSelectedCodes([]);
+                      setDateInput("");
+                      setSelectedDate("");
+                      setActiveStep(1);
+                      setCalendarOpen(false);
+                      setSubmittedPrompt("");
+                      void loadCandidates();
+                    }}
+                  >
+                    <RefreshCw aria-hidden="true" className="size-4" />
+                    후보 새로고침
+                  </Button>
+                </div>
+              </>
+            ) : null}
+          </CardContent>
+        ) : null}
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>2. 분석 날짜를 선택하세요</CardTitle>
-          <CardDescription>
-            한국 시간 기준 지난달 1일부터 오늘까지 선택할 수 있습니다.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        <StepHeader
+          title="2. 분석 날짜를 선택하세요"
+          description={
+            selectedDate
+              ? `${selectedDate} 중식`
+              : "한국 시간 기준 지난달 1일부터 오늘까지 선택할 수 있습니다."
+          }
+          active={activeStep === 2}
+          changeLabel={
+            selectedCodes.length === 2 && !isRunning ? "날짜 변경" : undefined
+          }
+          onOpen={() => setActiveStep(2)}
+        />
+        {activeStep === 2 ? (
+          <CardContent>
           <label htmlFor="analysis-date" className="mb-2 block text-sm font-medium">
             중식 날짜
           </label>
@@ -654,61 +708,79 @@ export default function MealAnalysisPage() {
             선택 가능: {dateRange.min} ~ {dateRange.max}
             {dateInput && !selectedDate ? " · yyyy-mm-dd 형식으로 입력해 주세요." : ""}
           </p>
-        </CardContent>
+          </CardContent>
+        ) : null}
       </Card>
 
       <section
         aria-label="급식 분석 채팅"
         className="overflow-hidden rounded-xl border bg-[var(--color-card)]"
       >
-        {showConversationStatus ? (
-          <div aria-live="polite" className="space-y-4 p-6">
-            {submittedPrompt ? (
-              <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-[var(--color-primary)] px-4 py-3 text-sm text-[var(--color-primary-foreground)]">
-                {submittedPrompt}
+        <StepHeader
+          title="3. 분석 질문을 확인하고 전송하세요"
+          description={
+            selectedDate
+              ? "자동으로 작성된 요청을 확인하거나 수정할 수 있습니다."
+              : "학교 두 곳과 날짜를 선택하면 요청 문장이 자동으로 작성됩니다."
+          }
+          active={activeStep === 3}
+          changeLabel={
+            selectedDate && !isRunning ? "분석 질문 열기" : undefined
+          }
+          onOpen={() => setActiveStep(3)}
+        />
+        {activeStep === 3 ? (
+          <>
+            {showConversationStatus ? (
+              <div aria-live="polite" className="space-y-4 px-6 pb-6">
+                {submittedPrompt ? (
+                  <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-[var(--color-primary)] px-4 py-3 text-sm text-[var(--color-primary-foreground)]">
+                    {submittedPrompt}
+                  </div>
+                ) : null}
+                {isRunning && PHASE_LABELS[state.phase] ? (
+                  <div role="status" className="flex items-center gap-3 text-sm">
+                    <LoaderCircle aria-hidden="true" className="size-5 animate-spin" />
+                    {PHASE_LABELS[state.phase]}
+                  </div>
+                ) : null}
+                {currentError && state.candidates.length > 0 ? (
+                  <ErrorNotice message={currentError} />
+                ) : null}
               </div>
             ) : null}
-            {isRunning && PHASE_LABELS[state.phase] ? (
-              <div role="status" className="flex items-center gap-3 text-sm">
-                <LoaderCircle aria-hidden="true" className="size-5 animate-spin" />
-                {PHASE_LABELS[state.phase]}
-              </div>
-            ) : null}
-            {currentError && state.candidates.length > 0 ? (
-              <ErrorNotice message={currentError} />
-            ) : null}
-          </div>
-        ) : null}
 
-        <form
-          onSubmit={handleSubmit}
-          className={`flex items-end gap-3 p-4 ${showConversationStatus ? "border-t" : ""}`}
-        >
-          <textarea
-            ref={analysisInput}
-            aria-label="분석 질문"
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (
-                event.key === "Enter" &&
-                (event.ctrlKey || event.metaKey) &&
-                !event.nativeEvent.isComposing
-              ) {
-                event.preventDefault();
-                event.currentTarget.form?.requestSubmit();
-              }
-            }}
-            placeholder="학교 두 곳과 날짜를 먼저 선택해 주세요."
-            rows={2}
-            disabled={isRunning}
-            className="min-h-11 flex-1 resize-none rounded-md border border-[var(--color-input)] bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[var(--color-muted-foreground)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] disabled:opacity-50"
-          />
-          <Button type="submit" disabled={!canSend}>
-            <Send aria-hidden="true" className="size-4" />
-            전송
-          </Button>
-        </form>
+            <form
+              onSubmit={handleSubmit}
+              className={`flex items-end gap-3 px-6 pb-6 ${showConversationStatus ? "border-t pt-6" : ""}`}
+            >
+              <textarea
+                ref={analysisInput}
+                aria-label="분석 질문"
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" &&
+                    (event.ctrlKey || event.metaKey) &&
+                    !event.nativeEvent.isComposing
+                  ) {
+                    event.preventDefault();
+                    event.currentTarget.form?.requestSubmit();
+                  }
+                }}
+                placeholder="학교 두 곳과 날짜를 먼저 선택해 주세요."
+                rows={2}
+                disabled={isRunning}
+                className="min-h-11 flex-1 resize-none rounded-md border border-[var(--color-input)] bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[var(--color-muted-foreground)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] disabled:opacity-50"
+              />
+              <Button type="submit" disabled={!canSend}>
+                <Send aria-hidden="true" className="size-4" />
+                전송
+              </Button>
+            </form>
+          </>
+        ) : null}
       </section>
 
       {state.result ? <AnalysisReport result={state.result} /> : null}
