@@ -150,6 +150,9 @@ class LunchAnalysisAGUIWorkflow(AgentFrameworkWorkflow):
             instructions=self._instructions,
         )
         latest_message = _latest_user_message(input_data)
+        specialist_prompt = evaluation_prompt(school_a_meal, school_b_meal)
+        if latest_message:
+            specialist_prompt = f"{latest_message}\n\n{specialist_prompt}"
         nested = AgentFrameworkWorkflow(workflow=workflow)
         nested_input = {
             "thread_id": thread_id,
@@ -158,8 +161,7 @@ class LunchAnalysisAGUIWorkflow(AgentFrameworkWorkflow):
                 {
                     "id": str(uuid.uuid4()),
                     "role": "user",
-                    "content": latest_message
-                    or evaluation_prompt(school_a_meal, school_b_meal),
+                    "content": specialist_prompt,
                 }
             ],
         }

@@ -157,6 +157,7 @@ class StructuredChatClient:
     def __init__(self) -> None:
         self.active = 0
         self.max_active = 0
+        self.requests: list[str] = []
 
     def get_response(
         self,
@@ -167,6 +168,7 @@ class StructuredChatClient:
         **_kwargs: Any,
     ) -> Any:
         assert messages
+        self.requests.append("\n".join(message.text for message in messages))
         if not stream:
             return self._response(options)
 
@@ -301,6 +303,9 @@ def test_analysis_streams_concurrent_steps_and_completed_state() -> None:
     events = decode_sse(response.text)
     snapshots = [event["snapshot"] for event in events if event["type"] == "STATE_SNAPSHOT"]
     assert chat_client.max_active == 3
+    assert len(chat_client.requests) == 4
+    assert all("현미밥" in request for request in chat_client.requests[:3])
+    assert all('"calorie": "700 Kcal"' in request for request in chat_client.requests[:3])
     assert any(event["type"] == "STEP_STARTED" for event in events)
     assert snapshots[-1]["phase"] == "completed"
     assert snapshots[-1]["result"]["schoolAScore"]["total"] == 100
