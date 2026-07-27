@@ -104,6 +104,8 @@ PowerShell:
 ```powershell
 az login
 $env:Azure__SubscriptionId = az account show --query id -o tsv
+# 필요한 경우 배포 tenant를 명시합니다.
+$env:Azure__TenantId = az account show --query tenantId -o tsv
 $env:Azure__Location = "koreacentral"
 $env:Azure__ResourceGroup = "rg-school-lunch"
 aspire deploy --environment production --non-interactive
@@ -114,6 +116,8 @@ Bash:
 ```bash
 az login
 export Azure__SubscriptionId="$(az account show --query id -o tsv)"
+# 필요한 경우 배포 tenant를 명시합니다.
+export Azure__TenantId="$(az account show --query tenantId -o tsv)"
 export Azure__Location="koreacentral"
 export Azure__ResourceGroup="rg-school-lunch"
 aspire deploy --environment production --non-interactive
