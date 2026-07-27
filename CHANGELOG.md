@@ -7,6 +7,65 @@
 
 ## [출시 예정]
 
+## [0.3.0] - 2026-07-27
+
+### 추가
+
+- OpenAPI 명세에서 생성한 MCP 서버와 학교 정보 및 급식 조회 도구 구현
+  ([#33](https://github.com/justinyoo/school-lunch/pull/33))
+- 급식 분석 채팅 UI, AG-UI 기반 에이전트 서비스와 동시 실행되는 전문 분석
+  에이전트 추가
+  ([#37](https://github.com/justinyoo/school-lunch/pull/37),
+  [#39](https://github.com/justinyoo/school-lunch/pull/39))
+- 급식 분석 채팅의 제품 요구사항과 평가 기준 문서화
+  ([#38](https://github.com/justinyoo/school-lunch/pull/38))
+- 에이전트 워크플로 실패 원인을 확인할 수 있는 진단 로그 추가
+  ([#41](https://github.com/justinyoo/school-lunch/pull/41))
+
+### 변경
+
+- 저장소 및 각 앱 문서를 현재 Aspire 기반 실행·배포 구조에 맞게 개편하고,
+  통합 테스트 스크립트와 아키텍처 다이어그램 추가
+  ([#44](https://github.com/justinyoo/school-lunch/pull/44))
+- Azure 배포 작업을 저장소 변수로 제어하도록 변경
+  ([#32](https://github.com/justinyoo/school-lunch/pull/32))
+
+### 수정
+
+- CI에서 Aspire 모듈 복원 후 AppHost TypeScript 빌드를 수행하도록 수정
+  ([#34](https://github.com/justinyoo/school-lunch/pull/34))
+- GitHub Actions의 Azure OIDC 주체 구성을 브랜치·PR 및 숫자 ID 기반으로
+  정정
+  ([#35](https://github.com/justinyoo/school-lunch/pull/35),
+  [#36](https://github.com/justinyoo/school-lunch/pull/36))
+- End-to-end GitHub Actions 작업의 실패를 수정
+  ([#40](https://github.com/justinyoo/school-lunch/pull/40))
+- 에이전트 ID에 Foundry 프로젝트 권한을 부여하고 역할 할당 프로비저닝을
+  안정화
+  ([#42](https://github.com/justinyoo/school-lunch/pull/42),
+  [#43](https://github.com/justinyoo/school-lunch/pull/43))
+
+### 제거
+
+- 더 이상 사용하지 않는 Docker Compose 실행 경로와 관련 설정 제거
+  ([#44](https://github.com/justinyoo/school-lunch/pull/44))
+
+### 포함된 Pull Request
+
+- [#32 Gate Azure deployment job with repository variable](https://github.com/justinyoo/school-lunch/pull/32)
+- [#33 Implement OpenAPI-based MCP server](https://github.com/justinyoo/school-lunch/pull/33)
+- [#34 Fix AppHost TypeScript CI build by restoring Aspire modules before compile](https://github.com/justinyoo/school-lunch/pull/34)
+- [#35 Fix Azure OIDC federation subjects](https://github.com/justinyoo/school-lunch/pull/35)
+- [#36 Use numeric ID-based OIDC subject](https://github.com/justinyoo/school-lunch/pull/36)
+- [#37 Add the school meal analysis chat tab](https://github.com/justinyoo/school-lunch/pull/37)
+- [#38 Document school meal analysis chat requirements](https://github.com/justinyoo/school-lunch/pull/38)
+- [#39 Add concurrent multi-agent meal analysis](https://github.com/justinyoo/school-lunch/pull/39)
+- [#40 Fix the failing End-to-end GitHub Actions job](https://github.com/justinyoo/school-lunch/pull/40)
+- [#41 Log agent workflow failures](https://github.com/justinyoo/school-lunch/pull/41)
+- [#42 Grant agent Foundry project access](https://github.com/justinyoo/school-lunch/pull/42)
+- [#43 Fix Foundry role assignment provisioning](https://github.com/justinyoo/school-lunch/pull/43)
+- [#44 Refresh application documentation](https://github.com/justinyoo/school-lunch/pull/44)
+
 ## [0.2.0] - 2026-07-25
 
 ### 추가
@@ -71,6 +130,7 @@
 - 컨테이너 내부의 얕은 경로에서도 API 설정이 `.env`를 안전하게 탐색하도록 수정
 - Dependabot PR 간 잠금 파일 충돌과 상호 의존 버전 불일치 해결
 
-[출시 예정]: https://github.com/justinyoo/school-lunch/compare/v0.2.0...HEAD
+[출시 예정]: https://github.com/justinyoo/school-lunch/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/justinyoo/school-lunch/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/justinyoo/school-lunch/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/justinyoo/school-lunch/releases/tag/v0.1.0
