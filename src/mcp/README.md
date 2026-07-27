@@ -57,26 +57,13 @@ asyncio.run(main())
 
 ## Aspire
 
-저장소 루트에서 `npm run dev`를 실행하면 `mcp` Uvicorn 리소스가 `api`, `web`과
-함께 시작됩니다. Aspire 대시보드에서 `mcp`의 동적 HTTPS URL을 확인한 뒤
+저장소 루트에서 `npm run dev`를 실행하면 `mcp` Uvicorn 리소스가 `api`, `agent`,
+`web`과 함께 시작됩니다. Aspire 대시보드에서 `mcp`의 동적 URL을 확인한 뒤
 그 URL에 `/mcp`를 붙여 연결합니다.
 
 Azure Container Apps 게시 모델에도 MCP가 포함되지만 ingress는 internal입니다.
 인증 없는 MCP endpoint를 인터넷에 공개하지 않으며, 외부 클라이언트 연결은
 별도의 인증·gateway 설계 후 활성화해야 합니다.
-
-## Docker Compose
-
-저장소 루트에서:
-
-```bash
-cp .env.example .env
-# .env의 NEIS_API_KEY를 설정
-docker compose up -d --build mcp
-```
-
-기본 URL은 <http://127.0.0.1:8001/mcp>입니다. `.env`의 `MCP_PORT`로 호스트 포트를
-바꿀 수 있으며, Compose 설정은 endpoint를 `127.0.0.1`에만 바인딩합니다.
 
 ## 도구
 

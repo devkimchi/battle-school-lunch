@@ -16,8 +16,8 @@ OpenAPI 기반 MCP 서버와 Microsoft Agent Framework 비교 분석 서비스 �
   - 운영: 프런트엔드와 백엔드가 같은 오리진의 `/api` 아래에서 동작.
 - MCP 서버는 `src/openapi.json`을 단일 명세 원본으로 사용하고 `/mcp`에서
   Streamable HTTP 전송을 제공합니다.
-- Agent 서비스는 `/agent`에서 AG-UI를 제공하고 MCP로 데이터를 준비한 뒤 세 전문
-  에이전트를 Concurrent 실행하고 Judge가 종합합니다.
+- Agent 서비스는 `POST /agent`에서 AG-UI SSE를 제공하고 MCP로 데이터를 준비한 뒤
+  세 전문 에이전트를 Concurrent 실행하고 Judge가 종합합니다.
 - 제품 요구사항은 `PRD.md`, 시스템 구조와 구현 결정은 `TRD.md`를 기준으로 합니다.
 
 ## 2. 디렉터리 구조
@@ -34,8 +34,7 @@ OpenAPI 기반 MCP 서버와 Microsoft Agent Framework 비교 분석 서비스 �
 ├── EVALUATION-RUBRIC.md 급식 분석 평가 기준 단일 원본
 ├── apphost.mts   Aspire TypeScript AppHost (api + mcp + agent + web)
 ├── aspire.config.json Aspire AppHost 설정
-├── compose.yaml  Docker Compose: 네 컨테이너 앱 오케스트레이션
-├── .env.example  NEIS·Foundry·포트 환경 변수 템플릿
+├── .env.example  NEIS·Azure 환경 변수 템플릿
 └── src/
     ├── api/          FastAPI 백엔드 (Python 3.12+ / uv)
     ├── web/          React 19 + Vite + TypeScript + Tailwind v4 프런트엔드
@@ -60,7 +59,7 @@ OpenAPI 기반 MCP 서버와 Microsoft Agent Framework 비교 분석 서비스 �
 - `lib/api.ts` — `/api/*` 호출 래퍼
 - `test/` — 테스트 인프라(MSW 핸들러, `renderWithProviders` 헬퍼, 통합 스위트)
 
-### MCP 서버 목표 구조 (`src/mcp/app/`)
+### MCP 서버 구조 (`src/mcp/app/`)
 
 - `main.py` — `/mcp` Streamable HTTP 서버 엔트리포인트
 - `openapi.py` — `src/openapi.json` 로드 및 MCP 도구 등록
@@ -81,11 +80,11 @@ OpenAPI 기반 MCP 서버와 Microsoft Agent Framework 비교 분석 서비스 �
 | --- | --- | --- |
 | Python | 3.12+ | `src/api`, `src/mcp`, `src/agent` |
 | `uv` | latest | `src/api`, `src/mcp`, `src/agent` |
-| Node.js | 22+ (24 LTS 권장) | `src/web`, `src/e2e` |
+| Node.js | 20.19+ 또는 22.13+ (24 LTS 권장) | AppHost, `src/web`, `src/e2e` |
 | npm | 10+ | `src/web`, `src/e2e` |
 | Aspire CLI | 13.4+ | 로컬 풀스택 오케스트레이션 |
 | Azure CLI | latest | Aspire Azure Container Apps 배포 |
-| Docker | 24+ (Compose 플러그인) | Compose / Aspire 이미지 빌드 |
+| Docker | 24+ | Aspire 이미지 빌드 |
 | NEIS API 키 | — | `src/api`, `src/mcp` 런타임 (실데이터 호출용) |
 
 - NEIS 키는 저장소 루트의 `.env`에 `NEIS_API_KEY=...` 형태로 둡니다.
@@ -138,7 +137,9 @@ uv run pytest
 ```
 
 실행 전 `az login`, `FOUNDRY_PROJECT_ENDPOINT`,
-`FOUNDRY_MODEL_DEPLOYMENT_NAME`, 실행 중인 MCP 서버가 필요합니다.
+`FOUNDRY_MODEL_DEPLOYMENT_NAME`, 실행 중인 MCP 서버가 필요합니다. Aspire 실행에서는
+Foundry resource reference가 각각 `FOUNDRY_PROJECT_URI`,
+`FOUNDRY_MODEL_MODELNAME`을 주입합니다.
 
 ### E2E (`src/e2e/`)
 
@@ -156,9 +157,6 @@ npm run report                  # 마지막 리포트 보기
 npm install                     # TypeScript AppHost 의존성
 npm run dev                     # Aspire로 api + mcp + agent + web 실행
 aspire stop                     # Aspire AppHost와 리소스 중지
-
-docker compose up -d --build    # 네 서비스 기동 (mcp, agent는 localhost 전용)
-docker compose down             # 중지 및 제거
 
 az login
 aspire publish --list-steps --non-interactive
@@ -183,9 +181,11 @@ aspire destroy --environment production
   마세요. `web`은 `api`를 참조하고 준비 상태를 기다리며, API URL은
   `withEnvironment("API_URL", api.getEndpoint("http"))`로 주입합니다.
   `NEIS_API_KEY`는 secret parameter로 모델링해 `api`와 `mcp` 환경 변수로 전달합니다.
-  Azure 배포에서는 `aca` Container Apps environment와 기존 nginx Dockerfile을
-  사용하는 `publishAsDockerFile(...)` 생산 모델을 유지합니다. nginx의 target
-  port는 8080이고 `API_UPSTREAM`에는 internal `api` endpoint를 주입합니다.
+  AppHost가 모델링한 Foundry project, `gpt-5-mini` deployment(10K TPM), agent 전용
+  user-assigned identity와 Foundry 역할 할당을 유지합니다. Azure 배포에서는 `aca`
+  Container Apps environment와 기존 nginx Dockerfile을 사용하는
+  `publishAsDockerFile(...)` 생산 모델을 유지합니다. nginx의 target port는 8080이고
+  `API_UPSTREAM`과 `AGENT_UPSTREAM`에는 각각 internal endpoint를 주입합니다.
   `web`만 external endpoint이고 `api`, `mcp`, `agent`는 internal입니다.
 - **MCP 서버**: `src/openapi.json`의 `operationId`, 설명, 파라미터와 필수 여부를
   도구 스키마에 반영합니다. 동일한 스키마를 코드에 중복 정의하지 마세요.
@@ -238,9 +238,8 @@ aspire destroy --environment production
   `uv.lock`을 갱신하고, 프런트엔드는 `npm`으로 추가해 `package-lock.json`을
   갱신합니다. 락 파일을 수동 편집하지 마세요.
 - **Azure 배포 원본**: `apphost.mts`가 Azure 토폴로지의 단일 원본입니다.
-- **컨테이너 보안 강화 유지**: `compose.yaml`과 각 Dockerfile은 non-root, `cap_drop: ALL`,
-  `no-new-privileges`, read-only 루트 파일시스템을 사용합니다. 디버깅 편의를 위해
-  이 설정을 약화시키지 마세요.
+- **컨테이너 보안 강화 유지**: 각 Dockerfile의 non-root 런타임과 Web nginx 보안
+  설정을 디버깅 편의를 위해 약화시키지 마세요.
 - **운영 nginx 프록시**: Web→API/Agent는 nginx에서 `proxy_set_header Host $proxy_host`와
   `proxy_ssl_server_name on`으로 HTTPS 업스트림에 연결됩니다. 이 설정을 변경할 때
   TLS SNI / 호스트 라우팅이 깨지지 않도록 주의하세요.
