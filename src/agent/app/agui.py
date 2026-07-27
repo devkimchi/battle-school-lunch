@@ -180,6 +180,13 @@ class LunchAnalysisAGUIWorkflow(AgentFrameworkWorkflow):
             elif isinstance(event, CustomEvent) and event.name == "workflow_output":
                 result = AnalysisResult.model_validate(event.value)
             elif isinstance(event, RunErrorEvent):
+                logger.error(
+                    "Evaluation workflow failed: thread_id=%s run_id=%s code=%s message=%s",
+                    thread_id,
+                    run_id,
+                    event.code,
+                    event.message,
+                )
                 details = event.message.lower()
                 if "rate limit" in details or "429" in details:
                     raise AnalysisWorkflowError(

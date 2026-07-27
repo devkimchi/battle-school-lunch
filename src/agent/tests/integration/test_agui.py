@@ -1,6 +1,7 @@
-import json
-import os
 import asyncio
+import json
+import logging
+import os
 from datetime import date
 from typing import Any
 
@@ -236,32 +237,40 @@ class RateLimitedChatClient:
         raise RuntimeError("Model request exceeded rate limit.")
 
 
-def test_rate_limit_returns_user_visible_retryable_error() -> None:
+def test_rate_limit_returns_user_visible_retryable_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     schools = [candidate(1), candidate(2)]
     app = create_app(
         data_source=CompleteDataSource(),
         chat_client=RateLimitedChatClient(),
     )
 
-    with TestClient(app) as client:
-        response = client.post(
-            "/agent",
-            json={
-                "threadId": "thread-rate-limit",
-                "runId": "run-rate-limit",
-                "messages": [
-                    {"id": "message-rate-limit", "role": "user", "content": "두 학교를 비교해줘"}
-                ],
-                "state": {
-                    "action": "analyze",
-                    "candidates": [
-                        school.model_dump(mode="json", by_alias=True) for school in schools
+    with caplog.at_level(logging.ERROR, logger="app.agui"):
+        with TestClient(app) as client:
+            response = client.post(
+                "/agent",
+                json={
+                    "threadId": "thread-rate-limit",
+                    "runId": "run-rate-limit",
+                    "messages": [
+                        {
+                            "id": "message-rate-limit",
+                            "role": "user",
+                            "content": "두 학교를 비교해줘",
+                        }
                     ],
-                    "selectedSchoolCodes": ["1", "2"],
-                    "selectedDate": date.today().isoformat(),
+                    "state": {
+                        "action": "analyze",
+                        "candidates": [
+                            school.model_dump(mode="json", by_alias=True)
+                            for school in schools
+                        ],
+                        "selectedSchoolCodes": ["1", "2"],
+                        "selectedDate": date.today().isoformat(),
+                    },
                 },
-            },
-        )
+            )
 
     assert response.status_code == 200
     events = decode_sse(response.text)
@@ -269,6 +278,9 @@ def test_rate_limit_returns_user_visible_retryable_error() -> None:
     assert snapshots[-1]["phase"] == "error"
     assert snapshots[-1]["error"]["code"] == "MODEL_RATE_LIMITED"
     assert snapshots[-1]["error"]["retryable"] is True
+    assert "thread_id=thread-rate-limit" in caplog.text
+    assert "run_id=run-rate-limit" in caplog.text
+    assert "Model request exceeded rate limit." in caplog.text
 
 
 def test_analysis_streams_concurrent_steps_and_completed_state() -> None:
