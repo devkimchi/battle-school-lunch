@@ -16,8 +16,8 @@ OpenAPI 기반 MCP 서버와 Microsoft Agent Framework 비교 분석 서비스 �
   - 운영: 프런트엔드와 백엔드가 같은 오리진의 `/api` 아래에서 동작.
 - MCP 서버는 `src/openapi.json`을 단일 명세 원본으로 사용하고 `/mcp`에서
   Streamable HTTP 전송을 제공합니다.
-- Agent 서비스는 `/agent`에서 AG-UI를 제공하고 MCP로 데이터를 준비한 뒤 세 전문
-  에이전트를 Concurrent 실행하고 Judge가 종합합니다.
+- Agent 서비스는 `POST /agent`에서 AG-UI SSE를 제공하고 MCP로 데이터를 준비한 뒤
+  세 전문 에이전트를 Concurrent 실행하고 Judge가 종합합니다.
 - 제품 요구사항은 `PRD.md`, 시스템 구조와 구현 결정은 `TRD.md`를 기준으로 합니다.
 
 ## 2. 디렉터리 구조
@@ -60,7 +60,7 @@ OpenAPI 기반 MCP 서버와 Microsoft Agent Framework 비교 분석 서비스 �
 - `lib/api.ts` — `/api/*` 호출 래퍼
 - `test/` — 테스트 인프라(MSW 핸들러, `renderWithProviders` 헬퍼, 통합 스위트)
 
-### MCP 서버 목표 구조 (`src/mcp/app/`)
+### MCP 서버 구조 (`src/mcp/app/`)
 
 - `main.py` — `/mcp` Streamable HTTP 서버 엔트리포인트
 - `openapi.py` — `src/openapi.json` 로드 및 MCP 도구 등록
@@ -81,7 +81,7 @@ OpenAPI 기반 MCP 서버와 Microsoft Agent Framework 비교 분석 서비스 �
 | --- | --- | --- |
 | Python | 3.12+ | `src/api`, `src/mcp`, `src/agent` |
 | `uv` | latest | `src/api`, `src/mcp`, `src/agent` |
-| Node.js | 22+ (24 LTS 권장) | `src/web`, `src/e2e` |
+| Node.js | 20.19+ 또는 22.13+ (24 LTS 권장) | AppHost, `src/web`, `src/e2e` |
 | npm | 10+ | `src/web`, `src/e2e` |
 | Aspire CLI | 13.4+ | 로컬 풀스택 오케스트레이션 |
 | Azure CLI | latest | Aspire Azure Container Apps 배포 |
@@ -138,7 +138,9 @@ uv run pytest
 ```
 
 실행 전 `az login`, `FOUNDRY_PROJECT_ENDPOINT`,
-`FOUNDRY_MODEL_DEPLOYMENT_NAME`, 실행 중인 MCP 서버가 필요합니다.
+`FOUNDRY_MODEL_DEPLOYMENT_NAME`, 실행 중인 MCP 서버가 필요합니다. Aspire 실행에서는
+Foundry resource reference가 각각 `FOUNDRY_PROJECT_URI`,
+`FOUNDRY_MODEL_MODELNAME`을 주입합니다.
 
 ### E2E (`src/e2e/`)
 
@@ -183,9 +185,11 @@ aspire destroy --environment production
   마세요. `web`은 `api`를 참조하고 준비 상태를 기다리며, API URL은
   `withEnvironment("API_URL", api.getEndpoint("http"))`로 주입합니다.
   `NEIS_API_KEY`는 secret parameter로 모델링해 `api`와 `mcp` 환경 변수로 전달합니다.
-  Azure 배포에서는 `aca` Container Apps environment와 기존 nginx Dockerfile을
-  사용하는 `publishAsDockerFile(...)` 생산 모델을 유지합니다. nginx의 target
-  port는 8080이고 `API_UPSTREAM`에는 internal `api` endpoint를 주입합니다.
+  AppHost가 모델링한 Foundry project, `gpt-5-mini` deployment(10K TPM), agent 전용
+  user-assigned identity와 Foundry 역할 할당을 유지합니다. Azure 배포에서는 `aca`
+  Container Apps environment와 기존 nginx Dockerfile을 사용하는
+  `publishAsDockerFile(...)` 생산 모델을 유지합니다. nginx의 target port는 8080이고
+  `API_UPSTREAM`과 `AGENT_UPSTREAM`에는 각각 internal endpoint를 주입합니다.
   `web`만 external endpoint이고 `api`, `mcp`, `agent`는 internal입니다.
 - **MCP 서버**: `src/openapi.json`의 `operationId`, 설명, 파라미터와 필수 여부를
   도구 스키마에 반영합니다. 동일한 스키마를 코드에 중복 정의하지 마세요.

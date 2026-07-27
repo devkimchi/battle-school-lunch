@@ -12,7 +12,7 @@ Web browser
     │
     └─ /agent (AG-UI POST + SSE)
     ▼
-Frontend (React/Vite → nginx or YARP)
+Frontend (React/Vite 개발 서버 또는 nginx 운영 컨테이너)
     ├─ /api/*  → Backend (FastAPI) → NEIS Open API
     └─ /agent  → Agent (FastAPI + Microsoft Agent Framework)
                     ├─ DefaultAzureCredential → Microsoft Foundry model
@@ -36,7 +36,8 @@ NEIS Open API
 - 백엔드와 MCP 서버는 `NEIS_API_KEY`를 서버 환경 변수로만 주입받는다.
 - 로컬에서는 TypeScript Aspire AppHost가 `api`, `mcp`, `agent`, `web`을 오케스트레이션한다.
 - Azure에서는 AppHost가 하나의 Container Apps Environment에 internal `api`, `mcp`,
-  `agent`와 public `web`을 배포하며, nginx가 `/api`와 `/agent`를 내부 서비스로 프록시한다.
+  `agent`와 public `web`을 배포하며, nginx가 `/api`와 `/agent`를 내부 서비스로
+  프록시한다. Agent는 전용 user-assigned identity로 Foundry에 인증한다.
 - Azure 배포 토폴로지의 단일 원본은 `apphost.mts`이며 `aspire deploy`로 적용한다.
 
 ---
@@ -185,8 +186,8 @@ src/web/
 server: {
   port: 5173,
   proxy: {
-    '/api': { target: 'http://localhost:8000', changeOrigin: true },
-    '/agent': { target: 'http://localhost:8002', changeOrigin: true }
+    '/api': { target: process.env.API_URL ?? 'http://localhost:8000', changeOrigin: true },
+    '/agent': { target: process.env.AGENT_URL ?? 'http://localhost:8002', changeOrigin: true }
   }
 }
 ```
@@ -251,7 +252,7 @@ src/mcp/
 | 웹·프로토콜 | FastAPI + `agent-framework-ag-ui` |
 | 에이전트 | Microsoft Agent Framework + `FoundryChatClient` |
 | 인증 | `DefaultAzureCredential` (로컬 Azure CLI, Azure 관리 ID) |
-| Aspire 리소스 | `Aspire.Hosting.Foundry` account + project + `gpt-5-mini` deployment |
+| Aspire 리소스 | Foundry account + project + 10K TPM `gpt-5-mini` deployment + agent user-assigned identity |
 | 데이터 도구 | `MCPStreamableHTTPTool` (`getSchoolInfo`, `getMealServiceDietInfo`만 허용) |
 | endpoint | `POST /agent` (SSE), `GET /health` |
 
@@ -358,21 +359,21 @@ NEIS API를 프론트엔드에서 직접 호출하지 않고 백엔드 프록시
 
 ## 8. 환경 변수 (Environment)
 
-저장소 루트의 `.env`:
+| 변수 | 소비자 | 기본값 / 주입 방식 |
+| --- | --- | --- |
+| `NEIS_API_KEY` | API, MCP | 네이티브 기본값 `sample`; Compose에서는 필수; Aspire secret parameter |
+| `NEIS_BASE_URL` | API, MCP | `https://open.neis.go.kr/hub` 또는 OpenAPI `servers[0].url` |
+| `CORS_ORIGINS` | API | 로컬 Vite origin 두 개 |
+| `API_URL`, `AGENT_URL` | Vite | 각각 `http://localhost:8000`, `http://localhost:8002` |
+| `API_UPSTREAM`, `AGENT_UPSTREAM` | nginx | Compose 또는 Aspire가 internal endpoint 주입 |
+| `FOUNDRY_PROJECT_ENDPOINT` | Agent | 네이티브·Compose에서 필수 |
+| `FOUNDRY_PROJECT_URI` | Agent | Aspire Foundry project reference가 주입 |
+| `FOUNDRY_MODEL_DEPLOYMENT_NAME`, `FOUNDRY_MODEL_DEPLOYMENT` | Agent | 네이티브·Compose deployment name과 호환 별칭 |
+| `FOUNDRY_MODEL_MODELNAME` | Agent | Aspire model reference가 주입 |
+| `MCP_URL` | Agent | 기본 `http://127.0.0.1:8001/mcp`; base URL이면 `/mcp` 보완 |
 
-```env
-NEIS_API_KEY=발급받은_NEIS_인증키
-FOUNDRY_PROJECT_ENDPOINT=https://.../api/projects/...
-FOUNDRY_MODEL_DEPLOYMENT_NAME=배포_이름
-```
-
-- 미발급 시 `sample` 키로 동작할 수 있으나 페이지와 건수가 제한된다.
-- Foundry 두 변수는 네이티브·Compose 실행용이다. Aspire에서는 Foundry integration
-  resource reference가 `FOUNDRY_PROJECT_URI`와
-  `FOUNDRY_MODEL_MODELNAME`을 주입한다.
-- `MCP_URL` 기본값은 `http://127.0.0.1:8001/mcp`이며 Aspire에서는 MCP endpoint
-  reference를 주입한다. base URL만 주입되면 agent가 `/mcp`를 보완한다.
-- `.env`는 저장소에 커밋하지 않는다.
+실데이터에는 발급된 NEIS 키를 사용한다. `sample` 키는 호출량과 조회 범위가
+제한될 수 있다. `.env`와 Azure 자격 증명은 저장소에 커밋하지 않는다.
 
 ---
 

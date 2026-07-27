@@ -1,6 +1,8 @@
 # PRD — 급식 정보 조회 및 분석 웹 앱
 
-> [NEIS 오픈 API(`src/openapi.json`)](./src/openapi.json)를 활용해 학교 중식(점심) 식단을 조회하는 웹 애플리케이션과 MCP 서버의 제품 요구사항 문서. 구현 세부사항은 [TRD](./TRD.md)에서 관리한다.
+> [NEIS 오픈 API(`src/openapi.json`)](./src/openapi.json)를 활용한 학교 중식
+> 조회 웹 앱, MCP 서버, AI 비교 분석 서비스의 제품 요구사항 문서. 구현 세부사항은
+> [TRD](./TRD.md)에서 관리한다.
 
 ---
 
@@ -33,6 +35,7 @@ NEIS API 키(`NEIS_API_KEY`)는 보안을 위해 **API와 MCP 서버에만 보�
 | G7 | 고정 상단 탭으로 급식 조회와 급식 분석 화면을 전환할 수 있다. |
 | G8 | 무작위 학교 후보 10곳 중 서로 다른 두 학교와 허용 날짜를 선택해 비교 분석을 요청할 수 있다. |
 | G9 | 영양 균형·건강성·메뉴 품질 평가와 가중 총점, 승자 또는 동점, 근거와 개선안을 확인할 수 있다. |
+| G10 | 조회와 분석 기능을 동일 오리진 웹 진입점에서 사용하고, 분석 진행 상태와 오류를 스트리밍으로 확인할 수 있다. |
 
 ### Non-goals (이번 범위에서 제외)
 
@@ -132,6 +135,9 @@ NEIS API 키(`NEIS_API_KEY`)는 보안을 위해 **API와 MCP 서버에만 보�
 
 - **FR-O1** `/api/health` 로 liveness 확인이 가능해야 한다.
 - **FR-O2** NEIS 에러(`INFO-000`/`INFO-200` 외)는 HTTP 502 와 `{ code, message }` 본문으로 매핑된다.
+- **FR-O3** MCP와 Agent 서비스는 각각 `/health` liveness endpoint를 제공한다.
+- **FR-O4** 운영 환경에서는 public web이 `/api/*`와 `/agent`를 internal 서비스로
+  프록시하고 API, MCP, Agent를 인터넷에 직접 노출하지 않는다.
 
 ### 5.4 MCP 서버
 
@@ -165,7 +171,7 @@ NEIS API 키(`NEIS_API_KEY`)는 보안을 위해 **API와 MCP 서버에만 보�
 | 영역 | 요구사항 |
 | --- | --- |
 | **보안** | `NEIS_API_KEY`와 Azure 자격 증명은 서버 전용이다. 프런트 번들에는 Foundry endpoint, 토큰, 비밀 값을 포함하지 않는다. |
-| **CORS** | 백엔드는 개발용으로 `http://localhost:5173`, `http://127.0.0.1:5173` 만 허용. |
+| **CORS / 동일 오리진** | 백엔드 기본 허용 origin은 `http://localhost:5173`, `http://127.0.0.1:5173`이다. Compose와 Azure에서는 public web 프록시를 통해 동일 오리진으로 통신한다. |
 | **성능** | 검색 입력 300ms debounce. 세 전문 에이전트는 병렬 실행하며 분석 입력은 선택한 날짜의 두 식단으로 제한한다. |
 | **국제화** | 한국어 UI 고정. 폰트 스택에 `Apple SD Gothic Neo`, `Noto Sans KR` 포함. |
 | **접근성** | 결과 카드는 `role="button"` + Enter/Space 키 활성화를 지원하고, 상단 탭은 현재 페이지를 `aria-current`로 표시하며, 분석 입력은 키보드 전송을 지원한다. |
@@ -188,7 +194,8 @@ NEIS API 키(`NEIS_API_KEY`)는 보안을 위해 **API와 MCP 서버에만 보�
 - [x] 달력에서 1개월 이내 범위를 선택할 수 있고, 초과 시 조회 버튼이 비활성화된다.
 - [x] 결과 페이지에서 각 날짜 카드에 메뉴/원산지/영양정보/칼로리/급식인원수가 **모두 불릿**으로 표시된다.
 - [x] 데이터 없는 날짜는 "급식 정보 없음" 카드로 표시된다.
-- [x] `NEIS_API_KEY` 가 프론트엔드 번들에 포함되지 않는다 (백엔드 환경변수만으로 동작).
+- [x] `NEIS_API_KEY`가 프론트엔드 번들에 포함되지 않고 API와 MCP 서버 환경
+  변수로만 전달된다.
 - [x] `npm run build` 가 타입 오류 없이 성공한다.
 - [x] 실제 NEIS API 키로 서울고등학교 5월 식단을 정상 조회한다 (수동 검증 완료).
 - [x] `src/mcp`에서 MCP 서버를 실행하고 `/mcp` 엔드포인트에 Streamable HTTP 방식으로 연결할 수 있다.
@@ -203,6 +210,8 @@ NEIS API 키(`NEIS_API_KEY`)는 보안을 위해 **API와 MCP 서버에만 보�
 - [x] AI Judge가 점수를 변경하지 않고 근거, 개선안, 품질 참고사항과 한계를 종합한다.
 - [x] 어느 한 학교의 중식이 없으면 평가를 중단하고 날짜 변경을 안내한다.
 - [x] 최종 화면에 두 메뉴, 영역별 평점·환산 점수, 총점, 승자 또는 동점이 표시된다.
+- [x] 운영 web이 `/api/*`와 `/agent`를 같은 오리진으로 프록시하고 API, MCP,
+  Agent는 internal endpoint로 유지된다.
 
 ---
 

@@ -1,6 +1,7 @@
 # 전국 초중고 급식 정보 조회 및 분석 앱
 
-전국 초중고 급식 정보 조회·분석 웹 앱과 NEIS OpenAPI 기반 MCP 서버 프로젝트.
+전국 초중고 중식 조회 웹 앱, NEIS OpenAPI 기반 MCP 서버, Microsoft Agent
+Framework 비교 분석 서비스를 하나의 Aspire AppHost로 구성한 프로젝트입니다.
 
 ```text
 /
@@ -45,7 +46,7 @@ MCP 서버는 `src/openapi.json`에서 `getSchoolInfo`와
 | --- | --- | --- |
 | Python | 3.12+ | `src/api`, `src/mcp`, `src/agent` (네이티브 개발) |
 | [`uv`](https://docs.astral.sh/uv/) | latest | Python 서비스 |
-| Node.js | 22+ (24 LTS 권장) | `src/web`, `src/e2e` (네이티브 개발) |
+| Node.js | 20.19+ 또는 22.13+ (24 LTS 권장) | AppHost, `src/web`, `src/e2e` |
 | npm | 10+ | `src/web`, `src/e2e` |
 | [Aspire CLI](https://aspire.dev/get-started/install-cli/) | 13.4+ | 전체 스택 로컬 오케스트레이션 |
 | [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) | latest | Foundry 로컬 인증 (`az login`) |
@@ -73,7 +74,7 @@ AppHost·API·웹·E2E 의존성과 Playwright Chromium은 최초 생성 시 준
 
 실제 NEIS 데이터를 조회하려면 저장소 또는 사용자 Codespaces 시크릿에
 `NEIS_API_KEY`를 등록하세요. 시크릿은 환경 변수로 주입되므로 `.env` 파일을 만들
-필요가 없습니다. 개발 서버 포트 `5173`, `8000`, `8080`, `4173`은 자동 전달됩니다.
+필요가 없습니다. 개발 서버 포트 `5173`, `8000`, `8001`, `8080`, `4173`은 자동 전달됩니다.
 
 ## 2. 로컬에서 앱 실행
 
@@ -104,7 +105,8 @@ API와 MCP에 주입하며, 값이 없으면 Aspire가 입력을 요청합니다
 
 ### 2.2 네이티브 (uv + npm)
 
-터미널 두 개가 필요합니다. 하나는 API, 다른 하나는 웹 앱용입니다.
+조회 기능만 사용하면 API와 웹용 터미널 두 개가 필요합니다. 분석 기능까지
+사용하려면 MCP와 Agent를 추가해 총 네 서비스를 실행합니다.
 
 #### 백엔드 (터미널 1)
 
@@ -180,7 +182,7 @@ Inspector에서 transport를 `Streamable HTTP`로 선택하고 실행 방식에 
 
 - 네이티브 / Docker Compose: `http://127.0.0.1:8001/mcp`
   (`MCP_PORT`를 변경했다면 해당 포트 사용)
-- Aspire: 대시보드에 표시된 `mcp` HTTPS URL 뒤에 `/mcp` 추가
+- Aspire: 대시보드에 표시된 `mcp` URL 뒤에 `/mcp` 추가
 
 연결 후 **Tools**에서 `getSchoolInfo`, `getMealServiceDietInfo`를 조회하고 직접
 호출할 수 있습니다. Python SDK 연결 예시는
@@ -235,8 +237,9 @@ Aspire가 주입한 `API_UPSTREAM`과 `AGENT_UPSTREAM`을 사용해 nginx가 같
 `/api`와 `/agent` 요청을 내부 리소스로 전달합니다. `/agent`는 SSE buffering을
 끄고 긴 read timeout을 사용합니다.
 
-Aspire는 Container Apps Environment, Azure Container Registry, managed identity,
-Aspire dashboard와 네 Container App을 프로비저닝하고, 이미지를 빌드·푸시합니다.
+Aspire는 Container Apps Environment, Azure Container Registry, agent 전용
+user-assigned managed identity, Foundry account/project/model deployment, Aspire
+dashboard와 네 Container App을 프로비저닝하고 이미지를 빌드·푸시합니다.
 `neis-api-key` secret parameter는 `api`와 `mcp`의 `NEIS_API_KEY` 환경 변수로만
 전달됩니다. 인증이 구현되기 전까지 MCP ingress는 외부에 공개하지 않습니다.
 
@@ -263,8 +266,9 @@ AppHost parameter 이름의 `-`는 환경 변수에서 `_`로 바뀌므로
 명령 기록에 넣지 말고 CI secret store 또는 현재 프로세스 환경으로 주입하세요.
 
 AppHost는 `Aspire.Hosting.Foundry` integration으로 Foundry account, project와
-model deployment를 프로비저닝하고 agent에 `Cognitive Services OpenAI User`
-역할을 할당합니다.
+10K TPM `gpt-5-mini` deployment를 프로비저닝합니다. Agent identity에는 account
+범위 `Cognitive Services OpenAI User`와 project 범위 `Azure AI User` 역할을
+할당합니다.
 
 배포 파일을 적용하지 않고 검토하려면 `aspire publish -o <output-dir>
 --non-interactive`를 사용합니다. 이 산출물은 검토·인계용이며, 실제 배포는
@@ -300,15 +304,15 @@ Container Apps environment, Log Analytics workspace 또는 Container Registry가
 
 ## 3. 앱 테스트
 
-작은 것부터 큰 것까지 네 가지 테스트 계층:
+작은 것부터 큰 것까지 다섯 가지 테스트 계층:
 
-| 계층 | 위치 | 도구 | 속도 | 모킹 대상 |
-| --- | --- | --- | --- | --- |
-| 단위 / 통합 (API) | `src/api/tests/` | pytest + respx | < 1초 | NEIS HTTP 경계 |
-| 단위 / 통합 (MCP) | `src/mcp/tests/` | pytest + respx + MCP SDK | < 1초 | NEIS HTTP 경계 |
-| 단위 / 통합 (Agent) | `src/agent/tests/` | pytest + Agent Framework | ~5초 | MCP·Foundry 경계 |
-| 단위 / 통합 (Web) | `src/web/src/**/*.test.*`, `src/web/src/test/integration/` | Vitest + RTL + MSW | ~4초 | `/api/*`, AG-UI client |
-| 엔드투엔드 | `src/e2e/tests/` | Playwright (Chromium) | ~6초 | `/api/*`, `/agent` (`page.route`) |
+| 계층 | 위치 | 도구 | 모킹 대상 |
+| --- | --- | --- | --- |
+| 단위 / 통합 (API) | `src/api/tests/` | pytest + respx | NEIS HTTP 경계 |
+| 단위 / 통합 (MCP) | `src/mcp/tests/` | pytest + respx + MCP SDK | NEIS HTTP 경계 |
+| 단위 / 통합 (Agent) | `src/agent/tests/` | pytest + Agent Framework | MCP·Foundry 경계 |
+| 단위 / 통합 (Web) | `src/web/src/**/*.test.*`, `src/web/src/test/integration/` | Vitest + RTL + MSW | `/api/*`, AG-UI client |
+| 엔드투엔드 | `src/e2e/tests/` | Playwright (Chromium) | `/api/*`, `/agent` (`page.route`) |
 
 ### 3.1 백엔드 테스트
 
@@ -457,7 +461,9 @@ school-lunch/
 - **개발 환경에서 NEIS 키 누락** — `api`와 MCP 서버 런타임에 필요합니다. 테스트는
   필요 없습니다.
 - **분석에서 Azure 인증 실패** — 로컬에서는 `az login`과 Foundry 프로젝트 접근
-  권한을 확인합니다. Azure에서는 agent 관리 ID의 Azure AI User 역할을 확인합니다.
+  권한을 확인합니다. Azure에서는 agent 관리 ID의 account 범위
+  `Cognitive Services OpenAI User`와 project 범위 `Azure AI User` 역할을
+  확인합니다.
 - **Compose: Foundry 설정 누락** — `.env`의 `FOUNDRY_PROJECT_ENDPOINT`와
   `FOUNDRY_MODEL_DEPLOYMENT_NAME`을 설정하세요.
 - **Compose: `NEIS_API_KEY is required`** — `.env.example`을 `.env`로 복사한 뒤
