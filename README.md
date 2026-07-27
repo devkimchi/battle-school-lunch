@@ -57,16 +57,14 @@ school-lunch/
 바꿉니다. Aspire는 Foundry project와 model deployment를 직접 프로비저닝하므로
 로컬 Aspire 실행에는 Foundry endpoint 변수가 필요하지 않습니다.
 
-PowerShell:
-
 ```powershell
+# PowerShell
 Copy-Item .env.example .env
 notepad .env
 ```
 
-Bash:
-
 ```bash
+# zsh/bash
 cp .env.example .env
 ${EDITOR:-vi} .env
 ```
@@ -100,9 +98,8 @@ aspire stop
 `apphost.mts`가 Azure Container Apps와 Foundry 배포 토폴로지의 단일 원본입니다.
 먼저 Azure에 로그인하고 배포 대상 값을 현재 셸에 설정합니다.
 
-PowerShell:
-
 ```powershell
+# PowerShell
 az login
 $env:Azure__SubscriptionId = az account show --query id -o tsv
 # 필요한 경우 배포 tenant를 명시합니다.
@@ -112,9 +109,8 @@ $env:Azure__ResourceGroup = "rg-school-lunch"
 aspire deploy --environment production --non-interactive
 ```
 
-Bash:
-
 ```bash
+# zsh/bash
 az login
 export Azure__SubscriptionId="$(az account show --query id -o tsv)"
 # 필요한 경우 배포 tenant를 명시합니다.
@@ -143,15 +139,13 @@ GitHub Actions OIDC와 배포 변수 구성은
 아래 스크립트는 잠긴 의존성을 설치하고 AppHost, API, MCP, Agent, Web, E2E 검증을
 순서대로 모두 실행합니다. 실제 NEIS나 Foundry에는 연결하지 않습니다.
 
-PowerShell:
-
 ```powershell
+# PowerShell
 ./scripts/test-all.ps1
 ```
 
-Bash:
-
 ```bash
+# zsh/bash
 ./scripts/test-all.sh
 ```
 
