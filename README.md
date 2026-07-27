@@ -31,6 +31,7 @@ school-lunch/
 │   ├── e2e/             Playwright E2E 테스트
 │   └── openapi.json     NEIS API 단일 명세 원본
 ├── AGENTS.md            AI 코딩 에이전트 지침
+├── EVALUATION-RUBRIC.md 급식 비교 평가 기준 단일 원본
 ├── PRD.md               제품 요구사항
 └── TRD.md               기술 요구사항
 ```
