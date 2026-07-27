@@ -34,8 +34,7 @@ OpenAPI 기반 MCP 서버와 Microsoft Agent Framework 비교 분석 서비스 �
 ├── EVALUATION-RUBRIC.md 급식 분석 평가 기준 단일 원본
 ├── apphost.mts   Aspire TypeScript AppHost (api + mcp + agent + web)
 ├── aspire.config.json Aspire AppHost 설정
-├── compose.yaml  Docker Compose: 네 컨테이너 앱 오케스트레이션
-├── .env.example  NEIS·Foundry·포트 환경 변수 템플릿
+├── .env.example  NEIS·Azure 환경 변수 템플릿
 └── src/
     ├── api/          FastAPI 백엔드 (Python 3.12+ / uv)
     ├── web/          React 19 + Vite + TypeScript + Tailwind v4 프런트엔드
@@ -85,7 +84,7 @@ OpenAPI 기반 MCP 서버와 Microsoft Agent Framework 비교 분석 서비스 �
 | npm | 10+ | `src/web`, `src/e2e` |
 | Aspire CLI | 13.4+ | 로컬 풀스택 오케스트레이션 |
 | Azure CLI | latest | Aspire Azure Container Apps 배포 |
-| Docker | 24+ (Compose 플러그인) | Compose / Aspire 이미지 빌드 |
+| Docker | 24+ | Aspire 이미지 빌드 |
 | NEIS API 키 | — | `src/api`, `src/mcp` 런타임 (실데이터 호출용) |
 
 - NEIS 키는 저장소 루트의 `.env`에 `NEIS_API_KEY=...` 형태로 둡니다.
@@ -158,9 +157,6 @@ npm run report                  # 마지막 리포트 보기
 npm install                     # TypeScript AppHost 의존성
 npm run dev                     # Aspire로 api + mcp + agent + web 실행
 aspire stop                     # Aspire AppHost와 리소스 중지
-
-docker compose up -d --build    # 네 서비스 기동 (mcp, agent는 localhost 전용)
-docker compose down             # 중지 및 제거
 
 az login
 aspire publish --list-steps --non-interactive
@@ -242,9 +238,8 @@ aspire destroy --environment production
   `uv.lock`을 갱신하고, 프런트엔드는 `npm`으로 추가해 `package-lock.json`을
   갱신합니다. 락 파일을 수동 편집하지 마세요.
 - **Azure 배포 원본**: `apphost.mts`가 Azure 토폴로지의 단일 원본입니다.
-- **컨테이너 보안 강화 유지**: `compose.yaml`과 각 Dockerfile은 non-root, `cap_drop: ALL`,
-  `no-new-privileges`, read-only 루트 파일시스템을 사용합니다. 디버깅 편의를 위해
-  이 설정을 약화시키지 마세요.
+- **컨테이너 보안 강화 유지**: 각 Dockerfile의 non-root 런타임과 Web nginx 보안
+  설정을 디버깅 편의를 위해 약화시키지 마세요.
 - **운영 nginx 프록시**: Web→API/Agent는 nginx에서 `proxy_set_header Host $proxy_host`와
   `proxy_ssl_server_name on`으로 HTTPS 업스트림에 연결됩니다. 이 설정을 변경할 때
   TLS SNI / 호스트 라우팅이 깨지지 않도록 주의하세요.

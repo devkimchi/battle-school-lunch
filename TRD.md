@@ -238,7 +238,7 @@ src/mcp/
 - 급식 도구의 `MMEAL_SC_CODE`는 중식 코드 `2`로 제한한다.
 - `NEIS_API_KEY`는 도구 인자로 노출하지 않는다.
 - NEIS 오류는 코드와 메시지를 포함한 MCP 도구 오류로 전달한다.
-- `/health`는 Aspire와 Docker Compose의 liveness probe에만 사용한다.
+- `/health`는 Aspire의 liveness probe에 사용한다.
 
 ---
 
@@ -361,14 +361,14 @@ NEIS API를 프론트엔드에서 직접 호출하지 않고 백엔드 프록시
 
 | 변수 | 소비자 | 기본값 / 주입 방식 |
 | --- | --- | --- |
-| `NEIS_API_KEY` | API, MCP | 네이티브 기본값 `sample`; Compose에서는 필수; Aspire secret parameter |
+| `NEIS_API_KEY` | API, MCP | 네이티브 기본값 `sample`; Aspire secret parameter |
 | `NEIS_BASE_URL` | API, MCP | `https://open.neis.go.kr/hub` 또는 OpenAPI `servers[0].url` |
 | `CORS_ORIGINS` | API | 로컬 Vite origin 두 개 |
 | `API_URL`, `AGENT_URL` | Vite | 각각 `http://localhost:8000`, `http://localhost:8002` |
-| `API_UPSTREAM`, `AGENT_UPSTREAM` | nginx | Compose 또는 Aspire가 internal endpoint 주입 |
-| `FOUNDRY_PROJECT_ENDPOINT` | Agent | 네이티브·Compose에서 필수 |
+| `API_UPSTREAM`, `AGENT_UPSTREAM` | nginx | Aspire가 internal endpoint 주입 |
+| `FOUNDRY_PROJECT_ENDPOINT` | Agent | 네이티브 실행에서 필수 |
 | `FOUNDRY_PROJECT_URI` | Agent | Aspire Foundry project reference가 주입 |
-| `FOUNDRY_MODEL_DEPLOYMENT_NAME`, `FOUNDRY_MODEL_DEPLOYMENT` | Agent | 네이티브·Compose deployment name과 호환 별칭 |
+| `FOUNDRY_MODEL_DEPLOYMENT_NAME`, `FOUNDRY_MODEL_DEPLOYMENT` | Agent | 네이티브 deployment name과 호환 별칭 |
 | `FOUNDRY_MODEL_MODELNAME` | Agent | Aspire model reference가 주입 |
 | `MCP_URL` | Agent | 기본 `http://127.0.0.1:8001/mcp`; base URL이면 `/mcp` 보완 |
 
@@ -405,8 +405,8 @@ uv sync
 uv run uvicorn app.main:app --host 127.0.0.1 --port 8001
 ```
 
-MCP endpoint는 `http://127.0.0.1:8001/mcp`이며 자세한 Inspector·Python client,
-Aspire, Docker Compose 연결 방법은 `src/mcp/README.md`에 정리한다.
+MCP endpoint는 `http://127.0.0.1:8001/mcp`이며 자세한 Inspector·Python client와
+Aspire 연결 방법은 `src/mcp/README.md`에 정리한다.
 
 ### 9.4 Agent 서비스
 
@@ -444,17 +444,16 @@ Vite는 `AGENT_URL`이 없으면 `/agent`를 `http://localhost:8002`로 프록�
 15. `docs` — 루트 `README.md` 업데이트
 16. `mcp-openapi` — OpenAPI 검증·참조 해석·도구 입력 스키마 생성
 17. `mcp-runtime` — NEIS 비동기 호출·오류 매핑·Streamable HTTP `/mcp`
-18. `mcp-compose` — hardened MCP 이미지와 localhost 전용 Compose endpoint
-19. `mcp-aspire` — Uvicorn 로컬 리소스와 internal ACA Container App 게시 모델
-20. `mcp-tests` — OpenAPI·NEIS·MCP protocol 단위·통합 테스트와 CI
-21. `mcp-docs` — 실행·연결·보안 정책 문서화
-22. `web-analysis-tabs` — sticky 조회·분석 탭과 `/analysis` 라우트
-23. `web-analysis-chat` — 로컬 메시지 채팅 UI와 Enter/수정자+Enter 키보드 동작
-24. `agent-foundation` — Foundry/MCP 설정, 구조화 계약과 결정적 점수 계산
-25. `concurrent-workflow` — 세 전문 에이전트 병렬 실행과 Judge aggregator
-26. `agui-hosting` — typed shared state, AG-UI endpoint와 hardened 이미지
-27. `web-analysis-ui` — 학교·날짜 선택, 진행 상태, 가중 결과와 Judge 보고서
-28. `runtime-integration` — Aspire/Compose/nginx/CI/E2E 연결
+18. `mcp-aspire` — Uvicorn 로컬 리소스와 internal ACA Container App 게시 모델
+19. `mcp-tests` — OpenAPI·NEIS·MCP protocol 단위·통합 테스트와 CI
+20. `mcp-docs` — 실행·연결·보안 정책 문서화
+21. `web-analysis-tabs` — sticky 조회·분석 탭과 `/analysis` 라우트
+22. `web-analysis-chat` — 로컬 메시지 채팅 UI와 Enter/수정자+Enter 키보드 동작
+23. `agent-foundation` — Foundry/MCP 설정, 구조화 계약과 결정적 점수 계산
+24. `concurrent-workflow` — 세 전문 에이전트 병렬 실행과 Judge aggregator
+25. `agui-hosting` — typed shared state, AG-UI endpoint와 hardened 이미지
+26. `web-analysis-ui` — 학교·날짜 선택, 진행 상태, 가중 결과와 Judge 보고서
+27. `runtime-integration` — Aspire/nginx/CI/E2E 연결
 
 ### 10.2 구현 중 해결한 이슈
 

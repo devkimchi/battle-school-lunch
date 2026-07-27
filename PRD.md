@@ -171,7 +171,7 @@ NEIS API 키(`NEIS_API_KEY`)는 보안을 위해 **API와 MCP 서버에만 보�
 | 영역 | 요구사항 |
 | --- | --- |
 | **보안** | `NEIS_API_KEY`와 Azure 자격 증명은 서버 전용이다. 프런트 번들에는 Foundry endpoint, 토큰, 비밀 값을 포함하지 않는다. |
-| **CORS / 동일 오리진** | 백엔드 기본 허용 origin은 `http://localhost:5173`, `http://127.0.0.1:5173`이다. Compose와 Azure에서는 public web 프록시를 통해 동일 오리진으로 통신한다. |
+| **CORS / 동일 오리진** | 백엔드 기본 허용 origin은 `http://localhost:5173`, `http://127.0.0.1:5173`이다. Azure에서는 public web 프록시를 통해 동일 오리진으로 통신한다. |
 | **성능** | 검색 입력 300ms debounce. 세 전문 에이전트는 병렬 실행하며 분석 입력은 선택한 날짜의 두 식단으로 제한한다. |
 | **국제화** | 한국어 UI 고정. 폰트 스택에 `Apple SD Gothic Neo`, `Noto Sans KR` 포함. |
 | **접근성** | 결과 카드는 `role="button"` + Enter/Space 키 활성화를 지원하고, 상단 탭은 현재 페이지를 `aria-current`로 표시하며, 분석 입력은 키보드 전송을 지원한다. |

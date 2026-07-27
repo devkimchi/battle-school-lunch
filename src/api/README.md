@@ -91,5 +91,5 @@ uv run pytest --cov=app         # 커버리지와 함께 실행
   `NEIS_API_KEY=...`를 설정했는지 확인하세요. 미설정 시 `sample` 키를 사용하며,
   테스트는 NEIS 호출을 모킹하므로 키가 필요 없습니다.
 - **CORS 차단** — 브라우저에서 직접 호출 시 `CORS_ORIGINS` 환경 변수가 웹
-  오리진을 포함하는지 확인하세요. Compose는 web origin을 명시하고 Azure에서는
-  nginx의 동일 오리진 프록시를 사용합니다.
+  오리진을 포함하는지 확인하세요. Azure에서는 nginx의 동일 오리진 프록시를
+  사용합니다.

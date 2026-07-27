@@ -24,16 +24,16 @@ Azure 자격 증명은 브라우저에 전달되지 않습니다. 급식 조회�
 | `NEIS_BASE_URL` | API, MCP | 선택적 NEIS base URL override |
 | `CORS_ORIGINS` | API | 네이티브 Web origin 목록 |
 | `API_URL`, `AGENT_URL` | Vite | 개발 프록시 대상 |
-| `API_UPSTREAM`, `AGENT_UPSTREAM` | nginx | Compose·Azure internal endpoint |
-| `FOUNDRY_PROJECT_ENDPOINT` | Agent | 네이티브·Compose Foundry project endpoint |
-| `FOUNDRY_MODEL_DEPLOYMENT_NAME` | Agent | 네이티브·Compose model deployment |
+| `API_UPSTREAM`, `AGENT_UPSTREAM` | nginx | Azure internal endpoint |
+| `FOUNDRY_PROJECT_ENDPOINT` | Agent | 네이티브 Foundry project endpoint |
+| `FOUNDRY_MODEL_DEPLOYMENT_NAME` | Agent | 네이티브 model deployment |
 | `FOUNDRY_PROJECT_URI` | Agent | Aspire project reference가 주입 |
 | `FOUNDRY_MODEL_MODELNAME` | Agent | Aspire model reference가 주입 |
 | `MCP_URL` | Agent | 기본 `http://127.0.0.1:8001/mcp` |
 
 루트 `.env.example`을 `.env`로 복사해 사용합니다. Aspire 로컬 실행에는
-`NEIS_API_KEY`만 필요하며, 네이티브 또는 Compose에서 분석 기능을 실행할 때
-Foundry endpoint와 deployment name도 설정합니다.
+`NEIS_API_KEY`만 필요하며, 개별 서비스를 네이티브로 실행할 때 Foundry endpoint와
+deployment name도 설정합니다.
 
 ## Aspire 실행
 
@@ -113,29 +113,6 @@ npm run dev
 Vite는 `/api`를 `API_URL` 또는 `http://localhost:8000`으로, `/agent`를
 `AGENT_URL` 또는 `http://localhost:8002`로 프록시합니다.
 
-## Docker Compose
-
-Compose는 운영 이미지와 동일한 hardened 컨테이너 네 개를 실행합니다.
-
-```bash
-docker compose up -d --build
-docker compose ps
-```
-
-- Web: <http://localhost:8080>
-- API health: <http://localhost:8080/api/health>
-- Agent: <http://localhost:8080/agent>
-- MCP: <http://127.0.0.1:8001/mcp>
-
-API와 Agent는 Web의 nginx를 통해서만 접근하고, MCP는 localhost에만 바인딩됩니다.
-모든 컨테이너는 non-root, `cap_drop: ALL`, `no-new-privileges`, read-only root
-filesystem을 유지합니다.
-
-```bash
-docker compose logs -f web agent api mcp
-docker compose down
-```
-
 ## MCP Inspector
 
 ```bash
@@ -144,7 +121,7 @@ npx -y @modelcontextprotocol/inspector
 
 transport는 `Streamable HTTP`를 선택합니다.
 
-- 네이티브·Compose: `http://127.0.0.1:8001/mcp`
+- 네이티브: `http://127.0.0.1:8001/mcp`
 - Aspire: 대시보드의 `mcp` endpoint 뒤에 `/mcp` 추가
 
 연결 후 `getSchoolInfo`, `getMealServiceDietInfo` 도구와 OpenAPI에서 생성된 입력

@@ -14,8 +14,7 @@
     },
     "ghcr.io/devcontainers/features/docker-in-docker:latest": {
       "version": "latest",
-      "moby": true,
-      "dockerDashComposeVersion": "v2"
+      "moby": true
     },
     "ghcr.io/devcontainers/features/azure-cli:latest": {
       "version": "latest"
@@ -26,10 +25,10 @@
   },
   "secrets": {
     "NEIS_API_KEY": {
-      "description": "NEIS Open API key injected into the API and MCP server by Aspire or Docker Compose."
+      "description": "NEIS Open API key injected into the API and MCP server by Aspire."
     }
   },
-  "forwardPorts": [5173, 8000, 8001, 8080, 4173],
+  "forwardPorts": [5173, 8000, 8001, 4173],
   "portsAttributes": {
     "5173": {
       "label": "Web development server",
@@ -41,10 +40,6 @@
     },
     "8001": {
       "label": "MCP Streamable HTTP",
-      "onAutoForward": "notify"
-    },
-    "8080": {
-      "label": "Docker Compose application",
       "onAutoForward": "notify"
     },
     "4173": {
