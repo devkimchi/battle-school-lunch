@@ -4,11 +4,12 @@
 TypeScript 앱입니다. Vite 개발 프록시는 `/api`를 FastAPI 백엔드로, `/agent`를
 AG-UI 멀티에이전트 서비스로 전달합니다.
 
-> 전체 워크숍을 한 번에 실행/테스트하는 방법은 `../README.md`를 참고하세요.
+> 전체 앱을 한 번에 실행/테스트하는 방법은 [`../../README.md`](../../README.md)를
+> 참고하세요.
 
 ## 사전 준비물
 
-- Node.js 22+ (24 LTS 권장)
+- Node.js 20.19+ 또는 22.13+ (24 LTS 권장)
 - npm 10+
 - 백엔드(`../api`)가 `http://localhost:8000`에서 실행 중
 - 분석 기능 사용 시 agent(`../agent`)가 `http://localhost:8002`에서 실행 중

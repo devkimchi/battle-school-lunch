@@ -57,8 +57,8 @@ asyncio.run(main())
 
 ## Aspire
 
-저장소 루트에서 `npm run dev`를 실행하면 `mcp` Uvicorn 리소스가 `api`, `web`과
-함께 시작됩니다. Aspire 대시보드에서 `mcp`의 동적 HTTPS URL을 확인한 뒤
+저장소 루트에서 `npm run dev`를 실행하면 `mcp` Uvicorn 리소스가 `api`, `agent`,
+`web`과 함께 시작됩니다. Aspire 대시보드에서 `mcp`의 동적 URL을 확인한 뒤
 그 URL에 `/mcp`를 붙여 연결합니다.
 
 Azure Container Apps 게시 모델에도 MCP가 포함되지만 ingress는 internal입니다.

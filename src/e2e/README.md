@@ -1,15 +1,16 @@
 # E2E 테스트 (Playwright)
 
-급식 정보 조회 웹 앱에 대한 엔드투엔드 테스트입니다. `../web` 의 **운영 Vite
-번들**을 대상으로 실제 Chromium 브라우저에서 실행되며, `/api/*` 호출은
-`page.route()`를 통해 브라우저 단에서 가로채집니다. FastAPI 백엔드(`../api`)는
+급식 정보 조회·분석 웹 앱에 대한 엔드투엔드 테스트입니다. `../web`의 **운영 Vite
+번들**을 대상으로 실제 Chromium 브라우저에서 실행되며, `/api/*`와 `/agent`
+호출은 `page.route()`를 통해 브라우저 단에서 가로챕니다. API, MCP, Agent 서버는
 실행 중일 **필요가 없습니다**.
 
-> 전체 워크숍을 한 번에 실행/테스트하는 방법은 `../README.md`를 참고하세요.
+> 전체 앱을 한 번에 실행/테스트하는 방법은 [`../../README.md`](../../README.md)를
+> 참고하세요.
 
 ## 사전 준비물
 
-- Node.js 22+ (24 LTS 권장)
+- Node.js 20.19+ 또는 22.13+ (24 LTS 권장)
 - npm 10+
 - Playwright Chromium 바이너리 (`npx playwright install chromium` — 1회성)
 
@@ -20,7 +21,8 @@ e2e/
 ├── playwright.config.ts          # webServer (vite preview), chromium 프로젝트
 ├── tests/
 │   ├── happy-path.spec.ts        # 검색 → 학교 선택 → 날짜 선택 → 중식 확인
-│   └── no-results.spec.ts        # 빈 검색 결과 + 빈 메뉴 결과
+│   ├── no-results.spec.ts        # 빈 검색 결과 + 빈 메뉴 결과
+│   └── analysis.spec.ts          # 후보 선택 → AG-UI 분석 결과·오류
 ├── fixtures/
 │   ├── neis-mocks.ts             # 사전 정의된 School/Meal 페이로드
 │   └── types.ts                  # API 응답 형식의 로컬 사본
@@ -38,7 +40,7 @@ e2e/
 ## 실행
 
 ```bash
-cd workshop/week-03/src/e2e
+cd src/e2e
 npm install
 npx playwright install chromium    # 1회성, 브라우저 바이너리 다운로드
 npm test                           # ../web 빌드 (pretest) 후 Playwright 실행
@@ -56,7 +58,7 @@ npm test                           # ../web 빌드 (pretest) 후 Playwright 실�
 
 ### 왜 브라우저 측 모킹인가?
 
-이 프로젝트는 워크숍용입니다. `../api`와 `../web`의 단위 + 통합 테스트는 이미
+`../api`와 `../web`의 단위 + 통합 테스트는 이미
 로직과 api↔web 연결(MSW를 통한)을 충분히 다루고 있습니다. E2E가 여기에 더하는
 가치는 다음과 같습니다:
 
@@ -64,9 +66,9 @@ npm test                           # ../web 빌드 (pretest) 후 Playwright 실�
 2. 실제 브라우저를 통한 전체 해피 패스에 대한 스모크 커버리지.
 3. 라우팅, 레이아웃, 빌드 설정 리팩터링에 대한 안전망.
 
-`/api/*` 경계에서 모킹함으로써 그 가치를 잃지 않으면서 E2E를 빠르고 안정적으로
-유지합니다. 실제 api↔web 계약 검증이 필요하다면 통합 스위트를 실행하거나 별도의
-풀스택 프로파일을 추가하세요.
+`/api/*`와 `/agent` 경계에서 모킹함으로써 그 가치를 잃지 않으면서 E2E를 빠르고
+안정적으로 유지합니다. 실제 서비스 간 계약 검증이 필요하다면 각 앱의 통합
+스위트를 실행하거나 별도의 풀스택 프로파일을 추가하세요.
 
 ### 테스트 추가하기
 
