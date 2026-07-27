@@ -73,9 +73,15 @@ ${EDITOR:-vi} .env
 
 ```dotenv
 NEIS_API_KEY=발급받은_NEIS_API_키
+Azure__SubscriptionId=<azure_subscription_id>
+Azure__Location=<azure_location>
 ```
 
-`.env`를 커밋하거나 키를 명령 기록·로그에 출력하지 마세요.
+> [!NOTE]
+> `Azure__SubscriptionId` 값은 `az account show` 명령어를 통해 알 수 있습니다.
+
+> [!WARNING]
+> `.env`를 커밋하거나 키를 명령 기록·로그에 출력하지 마세요.
 
 ### 2. Aspire로 로컬 실행
 
@@ -102,23 +108,33 @@ aspire stop
 # PowerShell
 az login
 $env:Azure__SubscriptionId = az account show --query id -o tsv
-# 필요한 경우 배포 tenant를 명시합니다.
-$env:Azure__TenantId = az account show --query tenantId -o tsv
 $env:Azure__Location = "koreacentral"
 $env:Azure__ResourceGroup = "rg-school-lunch"
 aspire deploy --environment production --non-interactive
 ```
 
+> [!NOTE]
+> 필요한 경우 배포 tenant를 명시합니다.
+>
+> ```powershell
+> $env:Azure__TenantId = az account show --query tenantId -o tsv
+> ```
+
 ```bash
 # zsh/bash
 az login
 export Azure__SubscriptionId="$(az account show --query id -o tsv)"
-# 필요한 경우 배포 tenant를 명시합니다.
-export Azure__TenantId="$(az account show --query tenantId -o tsv)"
 export Azure__Location="koreacentral"
 export Azure__ResourceGroup="rg-school-lunch"
 aspire deploy --environment production --non-interactive
 ```
+
+> [!NOTE]
+> 필요한 경우 배포 tenant를 명시합니다.
+>
+> ```bash
+> export Azure__TenantId="$(az account show --query tenantId -o tsv)"
+> ```
 
 배포 전에 실행 단계를 검토하려면
 `aspire deploy --list-steps --non-interactive`를 사용합니다. CI에서는
