@@ -5,7 +5,7 @@ import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadEnvFile } from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { FoundryModels, createBuilder } from './.aspire/modules/aspire.mjs';
+import { FoundryModels, FoundryRole, createBuilder } from './.aspire/modules/aspire.mjs';
 
 if (existsSync('.env')) {
   loadEnvFile('.env');
@@ -34,6 +34,9 @@ await foundryModel.withProperties(async (deployment) => {
 });
 
 const agentIdentity = await builder.addAzureUserAssignedIdentity('agent-identity');
+await agentIdentity.withFoundryRoleAssignments(foundry, [
+  FoundryRole.CognitiveServicesOpenAIUser,
+]);
 const agentFoundryRoleAssignment = await builder
   .addBicepTemplate('agent-foundry-user-role', './infra/agent-foundry-user-role.bicep')
   .withParameter('principalId', { value: agentIdentity.getOutput('principalId') })
