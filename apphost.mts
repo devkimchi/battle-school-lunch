@@ -33,13 +33,14 @@ await foundryModel.withProperties(async (deployment) => {
   await deployment.skuCapacity.set(10);
 });
 
-const agentIdentity = await builder.addAzureUserAssignedIdentity('agent-identity');
+const agentIdentityName = 'agent-identity';
+const agentIdentity = await builder.addAzureUserAssignedIdentity(agentIdentityName);
 await agentIdentity.withFoundryRoleAssignments(foundry, [
   FoundryRole.CognitiveServicesOpenAIUser,
 ]);
 const agentFoundryRoleAssignment = await builder
   .addBicepTemplate('agent-foundry-user-role', './infra/agent-foundry-user-role.bicep')
-  .withParameter('principalId', { value: agentIdentity.getOutput('principalId') })
+  .withParameter('identityNamePrefix', { value: agentIdentityName.replaceAll('-', '_') })
   .withParameter('foundryAccountName', { value: foundry.getOutput('name') })
   .withParameter('foundryProjectName', { value: foundryProject.getOutput('name') });
 
