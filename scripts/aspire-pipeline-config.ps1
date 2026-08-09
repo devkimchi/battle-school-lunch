@@ -234,8 +234,8 @@ try {
 $repoId = Invoke-NativeText gh @("api", "/repos/$Owner/$RepoName", "--jq", ".id")
 
 $federatedCredentialSubjects = @(
-    "repo:$Owner@$ownerId/$RepoName@$repoId:ref:refs/heads/main",
-    "repo:$Owner@$ownerId/$RepoName@$repoId:pull_request"
+    "repo:$Owner@$ownerId/$RepoName@${repoId}:ref:refs/heads/main",
+    "repo:$Owner@$ownerId/$RepoName@${repoId}:pull_request"
 )
 
 for ($i = 0; $i -lt $federatedCredentialNames.Count; $i++) {
