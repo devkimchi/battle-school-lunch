@@ -3,7 +3,7 @@
 set -euo pipefail
 
 AZURE_LOCATION="${AZURE_LOCATION:-${Azure__Location:-koreacentral}}"
-AZURE_RESOURCE_GROUP="${AZURE_RESOURCE_GROUP:-${Azure__ResourceGroup:-rg-school-lunch}}"
+AZURE_RESOURCE_GROUP="${AZURE_RESOURCE_GROUP:-${Azure__ResourceGroup:-rg-battle-school-lunch}}"
 AZURE_DEPLOYMENT=false
 REPOSITORY="${GITHUB_REPOSITORY:-}"
 SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID:-}"
