@@ -19,7 +19,7 @@ Framework의 전문 에이전트들이 두 학교의 식단을 비교 분석하�
   endpoint로 유지합니다.
 
 ```text
-school-lunch/
+battle-school-lunch/
 ├── apphost.mts          Aspire AppHost와 Azure 배포 모델
 ├── assets/              문서 이미지
 ├── scripts/             테스트·배포 보조 스크립트
@@ -109,7 +109,7 @@ aspire stop
 az login
 $env:Azure__SubscriptionId = az account show --query id -o tsv
 $env:Azure__Location = "koreacentral"
-$env:Azure__ResourceGroup = "rg-school-lunch"
+$env:Azure__ResourceGroup = "rg-battle-school-lunch"
 aspire deploy --environment production --non-interactive
 ```
 
@@ -125,7 +125,7 @@ aspire deploy --environment production --non-interactive
 az login
 export Azure__SubscriptionId="$(az account show --query id -o tsv)"
 export Azure__Location="koreacentral"
-export Azure__ResourceGroup="rg-school-lunch"
+export Azure__ResourceGroup="rg-battle-school-lunch"
 aspire deploy --environment production --non-interactive
 ```
 

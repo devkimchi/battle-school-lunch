@@ -7,7 +7,7 @@ param(
     [string]$ResourceGroup = $(
         if ($env:AZURE_RESOURCE_GROUP) { $env:AZURE_RESOURCE_GROUP }
         elseif ($env:Azure__ResourceGroup) { $env:Azure__ResourceGroup }
-        else { "rg-school-lunch" }
+        else { "rg-battle-school-lunch" }
     ),
     [string]$Location = $(
         if ($env:AZURE_LOCATION) { $env:AZURE_LOCATION }
