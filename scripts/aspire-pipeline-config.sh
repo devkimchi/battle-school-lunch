@@ -135,7 +135,12 @@ if [[ -z "$NEIS_API_KEY" ]]; then
   exit 1
 fi
 
-app_count="$(az ad app list --display-name "$APP_NAME" --query 'length(@)' --output tsv)"
+app_ids="$(az ad app list --display-name "$APP_NAME" --query '[].appId' --output tsv)"
+app_count=0
+while IFS= read -r app_id; do
+  [[ -n "$app_id" ]] && ((app_count += 1))
+done <<<"$app_ids"
+
 if ((app_count > 1)); then
   echo "Multiple Entra applications are named '$APP_NAME'; use --app-name with a unique name." >&2
   exit 1
@@ -154,14 +159,14 @@ fi
 
 SCOPE="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$AZURE_RESOURCE_GROUP"
 for role in Contributor "Role Based Access Control Administrator"; do
-  role_count="$(az role assignment list \
+  role_assignment_id="$(az role assignment list \
     --assignee-object-id "$SP_OBJECT_ID" \
     --scope "$SCOPE" \
     --role "$role" \
-    --query 'length(@)' \
+    --query '[0].id' \
     --output tsv)"
 
-  if ((role_count == 0)); then
+  if [[ -z "$role_assignment_id" ]]; then
     az role assignment create \
       --assignee-object-id "$SP_OBJECT_ID" \
       --assignee-principal-type ServicePrincipal \
@@ -213,10 +218,15 @@ for ((i = 0; i < ${#FEDERATED_CREDENTIAL_NAMES[@]}; i++)); do
         audiences: ["api://AzureADTokenExchange"]
       }')"
 
-    az ad app federated-credential create \
-      --id "$APP_ID" \
-      --parameters "$credential_json" \
-      --output none
+    (
+      credential_file="$(mktemp)"
+      trap 'rm -f "$credential_file"' EXIT
+      printf '%s' "$credential_json" >"$credential_file"
+      az ad app federated-credential create \
+        --id "$APP_ID" \
+        --parameters "@$credential_file" \
+        --output none
+    )
   fi
 done
 

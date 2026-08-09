@@ -152,12 +152,13 @@ if ([string]::IsNullOrWhiteSpace($NeisApiKey)) {
     throw "NEIS_API_KEY must not be empty."
 }
 
-$appCount = [int](Invoke-NativeText az @(
+$appIds = Invoke-NativeText az @(
     "ad", "app", "list",
     "--display-name", $AppName,
-    "--query", "length(@)",
+    "--query", "[].appId",
     "--output", "tsv"
-))
+)
+$appCount = @($appIds -split "\r?\n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count
 
 if ($appCount -gt 1) {
     throw "Multiple Entra applications are named '$AppName'; use -AppName with a unique name."
@@ -197,16 +198,16 @@ if ([string]::IsNullOrWhiteSpace($SpObjectId)) {
 
 $scope = "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup"
 foreach ($role in @("Contributor", "Role Based Access Control Administrator")) {
-    $roleCount = [int](Invoke-NativeText az @(
+    $roleAssignmentId = Invoke-NativeText az @(
         "role", "assignment", "list",
         "--assignee-object-id", $SpObjectId,
         "--scope", $scope,
         "--role", $role,
-        "--query", "length(@)",
+        "--query", "[0].id",
         "--output", "tsv"
-    ))
+    )
 
-    if ($roleCount -eq 0) {
+    if ([string]::IsNullOrWhiteSpace($roleAssignmentId)) {
         $null = Invoke-NativeText az @(
             "role", "assignment", "create",
             "--assignee-object-id", $SpObjectId,
@@ -263,12 +264,18 @@ for ($i = 0; $i -lt $federatedCredentialNames.Count; $i++) {
             audiences   = @("api://AzureADTokenExchange")
         } | ConvertTo-Json -Compress
 
-        $null = Invoke-NativeText az @(
-            "ad", "app", "federated-credential", "create",
-            "--id", $AppId,
-            "--parameters", $credential,
-            "--output", "none"
-        )
+        $credentialPath = [System.IO.Path]::GetTempFileName()
+        try {
+            Set-Content -LiteralPath $credentialPath -Value $credential -Encoding utf8NoBOM
+            $null = Invoke-NativeText az @(
+                "ad", "app", "federated-credential", "create",
+                "--id", $AppId,
+                "--parameters", "@$credentialPath",
+                "--output", "none"
+            )
+        } finally {
+            Remove-Item -LiteralPath $credentialPath -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
