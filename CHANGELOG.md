@@ -7,6 +7,72 @@
 
 ## [출시 예정]
 
+## [0.4.0] - 2026-08-09
+
+### 변경
+
+- 프로젝트 디렉터리와 기본 Azure 리소스 그룹 이름을
+  `battle-school-lunch`, `rg-battle-school-lunch`로 통일
+  ([#72](https://github.com/devkimchi/battle-school-lunch/pull/72))
+- GitHub Actions Azure 로그인 액션을 v3으로 업데이트
+  ([#45](https://github.com/devkimchi/battle-school-lunch/pull/45))
+- Web 런타임 의존성인 React DOM, TanStack Query, Lucide React,
+  React Router를 업데이트
+  ([#52](https://github.com/devkimchi/battle-school-lunch/pull/52),
+  [#55](https://github.com/devkimchi/battle-school-lunch/pull/55),
+  [#59](https://github.com/devkimchi/battle-school-lunch/pull/59),
+  [#63](https://github.com/devkimchi/battle-school-lunch/pull/63),
+  [#65](https://github.com/devkimchi/battle-school-lunch/pull/65))
+- Web 및 E2E 개발·테스트 도구를 최신 호환 버전으로 업데이트
+  ([#48](https://github.com/devkimchi/battle-school-lunch/pull/48),
+  [#51](https://github.com/devkimchi/battle-school-lunch/pull/51),
+  [#53](https://github.com/devkimchi/battle-school-lunch/pull/53),
+  [#56](https://github.com/devkimchi/battle-school-lunch/pull/56),
+  [#57](https://github.com/devkimchi/battle-school-lunch/pull/57),
+  [#58](https://github.com/devkimchi/battle-school-lunch/pull/58),
+  [#60](https://github.com/devkimchi/battle-school-lunch/pull/60),
+  [#62](https://github.com/devkimchi/battle-school-lunch/pull/62),
+  [#64](https://github.com/devkimchi/battle-school-lunch/pull/64),
+  [#66](https://github.com/devkimchi/battle-school-lunch/pull/66),
+  [#67](https://github.com/devkimchi/battle-school-lunch/pull/67),
+  [#68](https://github.com/devkimchi/battle-school-lunch/pull/68),
+  [#69](https://github.com/devkimchi/battle-school-lunch/pull/69),
+  [#70](https://github.com/devkimchi/battle-school-lunch/pull/70))
+- TypeScript 7 업데이트를 준비될 때까지 Dependabot 대상에서 제외
+  ([#61](https://github.com/devkimchi/battle-school-lunch/pull/61))
+
+### 수정
+
+- Windows `az.cmd`에서 JMESPath와 JSON 인자가 잘못 해석되는 문제를 해결하고,
+  GitHub OIDC 주체에 저장소 숫자 ID가 유지되도록 파이프라인 설정 스크립트를 수정
+  ([#71](https://github.com/devkimchi/battle-school-lunch/pull/71))
+
+### 포함된 Pull Request
+
+- [#45 Bump azure/login from 2 to 3](https://github.com/devkimchi/battle-school-lunch/pull/45)
+- [#48 Bump @types/node from 26.1.1 to 26.1.2 in /src/e2e](https://github.com/devkimchi/battle-school-lunch/pull/48)
+- [#51 Bump typescript-eslint from 8.64.0 to 8.65.0 in /src/web](https://github.com/devkimchi/battle-school-lunch/pull/51)
+- [#52 Bump react-dom from 19.2.7 to 19.2.8 in /src/web](https://github.com/devkimchi/battle-school-lunch/pull/52)
+- [#53 Bump @testing-library/jest-dom from 6.9.1 to 7.0.0 in /src/web](https://github.com/devkimchi/battle-school-lunch/pull/53)
+- [#55 Bump @tanstack/react-query from 5.101.2 to 5.101.4 in /src/web](https://github.com/devkimchi/battle-school-lunch/pull/55)
+- [#56 Bump @playwright/test from 1.61.1 to 1.62.1 in /src/e2e](https://github.com/devkimchi/battle-school-lunch/pull/56)
+- [#57 Bump jsdom from 29.1.1 to 30.0.1 in /src/web](https://github.com/devkimchi/battle-school-lunch/pull/57)
+- [#58 Bump globals from 17.7.0 to 17.8.0 in /src/web](https://github.com/devkimchi/battle-school-lunch/pull/58)
+- [#59 Bump lucide-react from 1.25.0 to 1.28.0 in /src/web](https://github.com/devkimchi/battle-school-lunch/pull/59)
+- [#60 Bump @vitejs/plugin-react from 6.0.3 to 6.0.5 in /src/web](https://github.com/devkimchi/battle-school-lunch/pull/60)
+- [#61 Defer TypeScript 7 updates](https://github.com/devkimchi/battle-school-lunch/pull/61)
+- [#62 Bump @types/node from 26.1.1 to 26.1.2 in /src/web](https://github.com/devkimchi/battle-school-lunch/pull/62)
+- [#63 Bump react-router-dom from 7.18.1 to 7.18.2 in /src/web](https://github.com/devkimchi/battle-school-lunch/pull/63)
+- [#64 Bump eslint from 10.7.0 to 10.8.0 in /src/web](https://github.com/devkimchi/battle-school-lunch/pull/64)
+- [#65 Bump lucide-react from 1.28.0 to 1.29.0 in /src/web](https://github.com/devkimchi/battle-school-lunch/pull/65)
+- [#66 Bump typescript-eslint from 8.65.0 to 8.66.0 in /src/web](https://github.com/devkimchi/battle-school-lunch/pull/66)
+- [#67 Bump @types/react from 19.2.17 to 19.2.18 in /src/web](https://github.com/devkimchi/battle-school-lunch/pull/67)
+- [#68 Bump @types/react-dom from 19.2.3 to 19.2.4 in /src/web](https://github.com/devkimchi/battle-school-lunch/pull/68)
+- [#69 Bump globals from 17.8.0 to 17.9.0 in /src/web](https://github.com/devkimchi/battle-school-lunch/pull/69)
+- [#70 Bump vite from 8.1.5 to 8.2.0 in /src/web](https://github.com/devkimchi/battle-school-lunch/pull/70)
+- [#71 Fix Azure CLI argument handling in pipeline scripts](https://github.com/devkimchi/battle-school-lunch/pull/71)
+- [#72 Align battle school lunch resource names](https://github.com/devkimchi/battle-school-lunch/pull/72)
+
 ## [0.3.0] - 2026-07-27
 
 ### 추가
@@ -130,7 +196,8 @@
 - 컨테이너 내부의 얕은 경로에서도 API 설정이 `.env`를 안전하게 탐색하도록 수정
 - Dependabot PR 간 잠금 파일 충돌과 상호 의존 버전 불일치 해결
 
-[출시 예정]: https://github.com/justinyoo/school-lunch/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/justinyoo/school-lunch/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/justinyoo/school-lunch/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/justinyoo/school-lunch/releases/tag/v0.1.0
+[출시 예정]: https://github.com/devkimchi/battle-school-lunch/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/devkimchi/battle-school-lunch/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/devkimchi/battle-school-lunch/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/devkimchi/battle-school-lunch/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/devkimchi/battle-school-lunch/releases/tag/v0.1.0
