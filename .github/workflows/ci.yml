@@ -14,6 +14,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  apphost:
+    name: AppHost
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Install Aspire CLI
+        run: |
+          curl -sSL https://aspire.dev/install.sh | bash
+          echo "$HOME/.aspire/bin" >> "$GITHUB_PATH"
+      - run: npm run build
+      - run: npm test
+
   api:
     name: API
     runs-on: ubuntu-latest
@@ -111,7 +128,7 @@ jobs:
   deploy:
     name: Deploy to Azure
     if: ${{ github.event_name == 'push' && vars.AZURE_DEPLOYMENT == 'true' }}
-    needs: [api, mcp, agent, web, e2e]
+    needs: [apphost, api, mcp, agent, web, e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: read

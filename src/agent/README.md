@@ -31,7 +31,8 @@ context에 포함합니다.
 | `PORT` | 아니요 | 기본 `8002` |
 
 인증 비밀은 설정에 저장하지 않습니다. 로컬에서는 `az login`의 Azure CLI 자격
-증명, Azure Container Apps에서는 관리 ID를 `DefaultAzureCredential`이 사용합니다.
+증명, Azure Container Apps에서는 관리 ID를 `DefaultAzureCredential`이 일반적으로
+사용합니다. 로컬에서 다른 자격 증명 소스가 먼저 선택될 수도 있습니다.
 
 ## 실행
 
@@ -48,10 +49,12 @@ uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8002
 - Health: <http://127.0.0.1:8002/health>
 
 저장소 루트의 `npm run dev`를 사용하면 Aspire Foundry integration이 account,
-project와 10K TPM `gpt-5-mini` deployment, agent 전용 user-assigned identity를
-모델링합니다. Identity에는 account 범위 `Cognitive Services OpenAI User`와
-project 범위 `Azure AI User` 역할이 할당됩니다. Aspire는 `mcp → agent → web`
-순서로 준비 상태를 관리합니다.
+project와 10K TPM `gpt-5-mini` deployment를 Azure에 프로비저닝하므로 권한과
+비용이 필요할 수 있습니다. 로컬에서는 배포용 관리 ID와 프로젝트 역할을 만들지
+않습니다. Azure 게시·배포 시 Agent 전용 user-assigned identity에는 account
+범위 `Cognitive Services OpenAI User`와 project 범위 `Azure AI User` 역할이
+할당됩니다. Aspire는 `mcp → agent → web` 순서로 준비 상태를 관리합니다.
+`/health` 성공은 Foundry 인증 또는 실제 모델 추론의 성공을 의미하지 않습니다.
 
 ## 테스트
 

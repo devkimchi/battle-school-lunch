@@ -252,7 +252,7 @@ src/mcp/
 | 웹·프로토콜 | FastAPI + `agent-framework-ag-ui` |
 | 에이전트 | Microsoft Agent Framework + `FoundryChatClient` |
 | 인증 | `DefaultAzureCredential` (로컬 Azure CLI, Azure 관리 ID) |
-| Aspire 리소스 | Foundry account + project + 10K TPM `gpt-5-mini` deployment + agent user-assigned identity |
+| Aspire 리소스 | Foundry account + project + 10K TPM `gpt-5-mini` deployment; 게시·배포 시 agent user-assigned identity |
 | 데이터 도구 | `MCPStreamableHTTPTool` (`getSchoolInfo`, `getMealServiceDietInfo`만 허용) |
 | endpoint | `POST /agent` (SSE), `GET /health` |
 

@@ -82,7 +82,7 @@ OpenAPI 기반 MCP 서버와 Microsoft Agent Framework 비교 분석 서비스 �
 | `uv` | latest | `src/api`, `src/mcp`, `src/agent` |
 | Node.js | 20.19+ 또는 22.13+ (24 LTS 권장) | AppHost, `src/web`, `src/e2e` |
 | npm | 10+ | `src/web`, `src/e2e` |
-| Aspire CLI | 13.4+ | 로컬 풀스택 오케스트레이션 |
+| Aspire CLI | 13.6.4+ | 로컬 풀스택 오케스트레이션 |
 | Azure CLI | latest | Aspire Azure Container Apps 배포 |
 | Docker | 24+ | Aspire 이미지 빌드 |
 | NEIS API 키 | — | `src/api`, `src/mcp` 런타임 (실데이터 호출용) |
@@ -155,6 +155,8 @@ npm run report                  # 마지막 리포트 보기
 
 ```bash
 npm install                     # TypeScript AppHost 의존성
+npm run build                   # Aspire SDK 복원 및 AppHost 타입 검사
+npm test                        # AppHost 회귀 및 가짜 설정 게시 산출물 검사
 npm run dev                     # Aspire로 api + mcp + agent + web 실행
 aspire stop                     # Aspire AppHost와 리소스 중지
 
@@ -181,8 +183,10 @@ aspire destroy --environment production
   마세요. `web`은 `api`를 참조하고 준비 상태를 기다리며, API URL은
   `withEnvironment("API_URL", api.getEndpoint("http"))`로 주입합니다.
   `NEIS_API_KEY`는 secret parameter로 모델링해 `api`와 `mcp` 환경 변수로 전달합니다.
-  AppHost가 모델링한 Foundry project, `gpt-5-mini` deployment(10K TPM), agent 전용
-  user-assigned identity와 Foundry 역할 할당을 유지합니다. Azure 배포에서는 `aca`
+  AppHost가 모델링한 Foundry project와 `gpt-5-mini` deployment(10K TPM)를 유지합니다.
+  로컬에서는 개발자 자격 증명을 사용하고 배포용 관리 ID를 등록하지 않습니다.
+  게시·배포에서는 agent 전용 user-assigned identity와 Foundry 역할 할당을 유지합니다.
+  Azure 배포에서는 `aca`
   Container Apps environment와 기존 nginx Dockerfile을 사용하는
   `publishAsDockerFile(...)` 생산 모델을 유지합니다. nginx의 target port는 8080이고
   `API_UPSTREAM`과 `AGENT_UPSTREAM`에는 각각 internal endpoint를 주입합니다.
@@ -203,6 +207,7 @@ aspire destroy --environment production
 
 | 계층 | 위치 | 도구 | 모킹 경계 |
 | --- | --- | --- | --- |
+| AppHost | `tests/` | Node.js test runner + Aspire publish | 가짜 Azure 설정, 게시 산출물 |
 | 단위/통합 (API) | `src/api/tests/` | pytest + respx | NEIS HTTP 경계 |
 | 단위/통합 (Web) | `src/web/src/**/*.test.*`, `src/web/src/test/integration/` | Vitest + RTL + MSW | `/api/*` |
 | 단위/통합 (MCP) | `src/mcp/tests/` | pytest + respx | NEIS HTTP 경계 |

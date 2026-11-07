@@ -21,6 +21,8 @@ Azure 자격 증명은 브라우저에 전달되지 않습니다. 급식 조회�
 | 변수 | 소비자 | 설명 |
 | --- | --- | --- |
 | `NEIS_API_KEY` | API, MCP | NEIS 인증키; Aspire secret parameter의 원본 |
+| `Azure__SubscriptionId`, `Azure__Location` | Aspire 호스트 | Foundry 프로비저닝 대상 구독과 지역 |
+| `Azure__TenantId`, `Azure__ResourceGroup` | Aspire 호스트 | 선택적 tenant와 리소스 그룹 |
 | `NEIS_BASE_URL` | API, MCP | 선택적 NEIS base URL override |
 | `CORS_ORIGINS` | API | 네이티브 Web origin 목록 |
 | `API_URL`, `AGENT_URL` | Vite | 개발 프록시 대상 |
@@ -32,8 +34,10 @@ Azure 자격 증명은 브라우저에 전달되지 않습니다. 급식 조회�
 | `MCP_URL` | Agent | 기본 `http://127.0.0.1:8001/mcp` |
 
 루트 `.env.example`을 `.env`로 복사해 사용합니다. Aspire 로컬 실행에는
-`NEIS_API_KEY`만 필요하며, 개별 서비스를 네이티브로 실행할 때 Foundry endpoint와
-deployment name도 설정합니다.
+`NEIS_API_KEY`, Azure 구독·지역과 Azure CLI 로그인이 필요합니다. AppHost는
+자신의 디렉터리에서 `.env`를 읽으며, 기존 셸·호스트 설정이나 Aspire에 저장된
+Azure 설정을 덮어쓰지 않습니다. 개별 서비스를 네이티브로 실행할 때는 Foundry
+endpoint와 deployment name도 설정합니다.
 
 ## Aspire 실행
 
@@ -43,13 +47,18 @@ TypeScript AppHost인 `apphost.mts`는 다음 리소스를 모델링합니다.
 - Vite 기반 `web`
 - Azure Container Apps environment
 - Microsoft Foundry account, project, 10K TPM `gpt-5-mini` deployment
-- Agent 전용 user-assigned identity와 Foundry 역할 할당
+- Azure 게시·배포 시 Agent 전용 user-assigned identity와 Foundry 역할 할당
 
 ```bash
 npm install
 az login
 npm run dev
 ```
+
+로컬에서도 Foundry 리소스가 Azure에 프로비저닝되므로 권한과 비용이 필요할 수
+있습니다. 로컬 Agent는 일반적으로 Azure CLI 개발자 자격 증명을 사용하고,
+배포 전용 관리 ID와 프로젝트 역할은 생성하지 않습니다. 다른
+`DefaultAzureCredential` 소스가 우선될 수도 있습니다.
 
 `mcp → agent → web` 준비 순서가 적용됩니다. Vite에는 `API_URL`과 `AGENT_URL`,
 운영 nginx에는 `API_UPSTREAM`과 `AGENT_UPSTREAM`이 endpoint reference로
@@ -146,7 +155,7 @@ aspire deploy --environment production --non-interactive
 
 ### GitHub Actions 배포 구성
 
-CI는 API, MCP, Agent, Web, E2E 작업이 모두 성공한 뒤 `AZURE_DEPLOYMENT=true`인
+CI는 AppHost, API, MCP, Agent, Web, E2E 작업이 모두 성공한 뒤 `AZURE_DEPLOYMENT=true`인
 `main` push에서 Aspire 배포를 실행합니다. Entra 앱, OIDC federated credential,
 Azure RBAC, 저장소 variable과 `NEIS_API_KEY` secret은 다음 중 운영체제에 맞는
 스크립트로 구성합니다.
@@ -166,6 +175,7 @@ Azure RBAC, 저장소 variable과 `NEIS_API_KEY` secret은 다음 중 운영체�
 
 | 계층 | 위치 | 도구 | 모킹 경계 |
 | --- | --- | --- | --- |
+| AppHost | `tests/` | Node.js test runner, Aspire publish | 가짜 설정과 게시 산출물 |
 | API | `src/api/tests/` | pytest, respx | NEIS HTTP |
 | MCP | `src/mcp/tests/` | pytest, respx, MCP SDK | NEIS HTTP |
 | Agent | `src/agent/tests/` | pytest, Agent Framework | MCP, Foundry |
@@ -183,6 +193,8 @@ Azure RBAC, 저장소 variable과 `NEIS_API_KEY` secret은 다음 중 운영체�
 ```
 
 테스트는 실제 NEIS, MCP 또는 Foundry 서비스에 접근하지 않습니다.
+AppHost만 검증하려면 저장소 루트에서 `npm run build` 후 `npm test`를 실행합니다.
+게시 산출물 검증은 Azure 리소스를 생성하거나 배포하지 않습니다.
 
 ## 디렉터리 상세
 

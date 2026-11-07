@@ -19,6 +19,7 @@ Push-Location $rootDirectory
 try {
     Invoke-Native { npm ci }
     Invoke-Native { npm run build }
+    Invoke-Native { npm test }
 }
 finally {
     Pop-Location

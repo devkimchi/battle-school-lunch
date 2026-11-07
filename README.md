@@ -44,7 +44,7 @@ battle-school-lunch/
 | [uv](https://docs.astral.sh/uv/) | Python 의존성 관리 |
 | Node.js | 20.19+ 또는 22.13+ (24 LTS 권장) |
 | npm | 10+ |
-| [Aspire CLI](https://aspire.dev/get-started/install-cli/) | 13.4+ |
+| [Aspire CLI](https://aspire.dev/get-started/install-cli/) | 13.6.4+ |
 | [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) | Foundry 인증과 Azure 배포 |
 | Docker | 24+; Azure 배포 이미지 빌드 |
 | NEIS API 키 | [교육정보 개방 포털](https://open.neis.go.kr/)에서 발급 |
@@ -79,6 +79,11 @@ Azure__Location=<azure_location>
 
 > [!NOTE]
 > `Azure__SubscriptionId` 값은 `az account show` 명령어를 통해 알 수 있습니다.
+> 필요하면 `Azure__TenantId`와 `Azure__ResourceGroup`도 설정하세요.
+
+AppHost는 현재 작업 디렉터리가 아닌 `apphost.mts` 위치를 기준으로 `.env`를
+읽습니다. 기존 셸 환경 변수와 Aspire 호스트 설정은 덮어쓰지 않으며, Aspire
+대시보드나 CLI에 저장된 Azure 설정이 `.env`보다 우선 적용될 수 있습니다.
 
 > [!WARNING]
 > `.env`를 커밋하거나 키를 명령 기록·로그에 출력하지 마세요.
@@ -93,6 +98,12 @@ npm run dev
 
 Aspire 대시보드에서 `api`, `mcp`, `agent`, `web`과 Foundry 리소스의 상태, 로그,
 트레이스, 실행 URL을 확인할 수 있습니다. Web의 endpoint를 열어 앱을 사용합니다.
+로컬에서도 Foundry account, project와 모델이 Azure에 프로비저닝되므로 Azure
+권한과 사용량에 따른 비용이 필요할 수 있습니다. Agent는 일반적으로 `az login`의
+개발자 자격 증명을 사용하며, 배포 전용 관리 ID와 프로젝트 역할은 로컬에서
+생성하지 않습니다. 다른 `DefaultAzureCredential` 자격 증명이 먼저 선택될 수도
+있습니다.
+
 종료하려면 실행 터미널에서 `Ctrl+C`를 누르거나 다른 터미널에서 다음을 실행합니다.
 
 ```bash
@@ -139,7 +150,8 @@ aspire deploy --environment production --non-interactive
 배포 전에 실행 단계를 검토하려면
 `aspire deploy --list-steps --non-interactive`를 사용합니다. CI에서는
 `Parameters__neis_api_key`를 저장소 secret으로 주입하며, 로컬 배포는 앞서 만든
-`.env`의 `NEIS_API_KEY`를 사용합니다.
+`.env`의 `NEIS_API_KEY`를 사용합니다. Azure 배포에서는 Agent 전용
+user-assigned identity에 Foundry account와 project 역할을 할당합니다.
 
 배포 리소스를 제거하려면 다음을 실행합니다.
 
@@ -154,6 +166,8 @@ GitHub Actions OIDC와 배포 변수 구성은
 
 아래 스크립트는 잠긴 의존성을 설치하고 AppHost, API, MCP, Agent, Web, E2E 검증을
 순서대로 모두 실행합니다. 실제 NEIS나 Foundry에는 연결하지 않습니다.
+AppHost만 검사할 때는 루트에서 `npm run build` 후 `npm test`를 실행합니다.
+AppHost 테스트는 가짜 설정으로 게시 산출물도 확인하지만 Azure에 배포하지 않습니다.
 
 ```powershell
 # PowerShell
@@ -169,8 +183,12 @@ GitHub Actions OIDC와 배포 변수 구성은
 
 - **Aspire가 `NEIS_API_KEY`를 요청함** — 루트 `.env`에 키가 있고 변수 이름이
   정확한지 확인합니다.
+- **Azure 구독 또는 지역 설정 누락** — 루트 `.env`의 `Azure__SubscriptionId`와
+  `Azure__Location`, 셸 환경 변수 및 Aspire에 저장된 Azure 설정을 확인합니다.
 - **Foundry 인증 실패** — `az login` 후 현재 계정이 대상 subscription과 Foundry
-  리소스를 사용할 권한이 있는지 확인합니다.
+  리소스를 사용할 권한이 있는지 확인하고, 다른 자격 증명이 먼저 선택되지 않았는지
+  확인합니다. Agent의 `/health` 성공은 Foundry 인증이나 모델 추론의 성공을 보장하지
+  않습니다.
 - **Docker를 찾을 수 없음** — Azure 배포 전 Docker Desktop 또는 Docker daemon이
   실행 중인지 확인합니다.
 - **E2E에서 Chromium을 실행할 수 없음** — `cd src/e2e` 후
