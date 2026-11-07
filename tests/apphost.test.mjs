@@ -181,7 +181,6 @@ async function runAppHost({
     'node:url': { fileURLToPath },
     './.aspire/modules/aspire.mjs': {
       FoundryModels: { OpenAI: { Gpt5Mini: 'gpt-5-mini' } },
-      FoundryRole: { CognitiveServicesOpenAIUser: 'CognitiveServicesOpenAIUser' },
       async createBuilder() {
         return builder;
       },
@@ -289,4 +288,65 @@ test('leaves absent or empty Azure values unset when .env is missing', async () 
     'Azure:TenantId': 'host-tenant',
     'Azure:Location': 'shell-region',
   });
+});
+
+test('run mode retains the service graph without deployment-only identity resources', async () => {
+  const result = await runAppHost();
+
+  for (const name of ['aca', 'foundry', 'foundry-project', 'foundry-model', 'api', 'mcp', 'agent', 'web']) {
+    assert.ok(result.resources.has(name), `${name} is missing`);
+  }
+  assert.equal(result.resources.has('agent-identity'), false);
+  assert.equal(result.resources.has('agent-foundry-user-role'), false);
+  assert.equal(result.calls.some(({ resource, method }) => (
+    resource === 'agent' && method === 'withAzureUserAssignedIdentity'
+  )), false);
+
+  const dependencies = (resource, method) => result.calls
+    .filter((call) => call.resource === resource && call.method === method)
+    .map(({ args }) => args[0].name);
+  assert.deepEqual(dependencies('agent', 'waitFor'), ['foundry-project', 'foundry-model', 'mcp']);
+  assert.deepEqual(dependencies('agent', 'withReference'), ['foundry-project', 'foundry-model', 'mcp']);
+  assert.deepEqual(dependencies('web', 'waitFor'), ['api', 'agent']);
+  assert.deepEqual(dependencies('web', 'withReference'), ['api', 'agent']);
+  assert.ok(result.calls.some(({ resource, method, args }) => (
+    resource === 'foundry-model' && method === 'skuCapacity' && args[0] === 10
+  )));
+});
+
+test('publish mode connects the actual identity outputs to the project-scoped role', async () => {
+  const result = await runAppHost({ publish: true });
+
+  const identity = result.resources.get('agent-identity');
+  const role = result.resources.get('agent-foundry-user-role');
+  assert.ok(identity);
+  assert.ok(role);
+
+  const parameters = Object.fromEntries(result.calls
+    .filter(({ resource, method }) => resource === 'agent-foundry-user-role' && method === 'withParameter')
+    .map(({ args }) => [args[0], args[1].value]));
+  assert.deepEqual(parameters, {
+    identityName: { resource: 'agent-identity', output: 'name' },
+    identityPrincipalId: { resource: 'agent-identity', output: 'principalId' },
+    foundryAccountName: { resource: 'foundry', output: 'name' },
+    foundryProjectName: { resource: 'foundry-project', output: 'name' },
+  });
+  assert.ok(result.calls.some(({ resource, method, args }) => (
+    resource === 'agent' && method === 'withAzureUserAssignedIdentity' && args[0] === identity
+  )));
+  assert.ok(result.calls.some(({ resource, method, args }) => (
+    resource === 'agent' && method === 'waitFor' && args[0] === role
+  )));
+});
+
+test('project role keeps its previous name-based GUID and uses the supplied principal', async () => {
+  const bicep = await readFile(new URL('../infra/agent-foundry-user-role.bicep', import.meta.url), 'utf8');
+
+  assert.match(bicep, /param identityName string/);
+  assert.match(bicep, /param identityPrincipalId string/);
+  assert.match(bicep, /53ca6127-db72-4b80-b1b0-d745d6d5456d/);
+  assert.match(bicep, /name: guid\(foundryProject\.id, identityName, foundryUserRoleDefinitionId\)/);
+  assert.match(bicep, /scope: foundryProject/);
+  assert.match(bicep, /principalId: identityPrincipalId/);
+  assert.doesNotMatch(bicep, /resource agentIdentity /);
 });

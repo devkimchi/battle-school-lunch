@@ -5,7 +5,7 @@ import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadEnvFile } from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { FoundryModels, FoundryRole, createBuilder } from './.aspire/modules/aspire.mjs';
+import { FoundryModels, createBuilder } from './.aspire/modules/aspire.mjs';
 
 const rootDirectory = fileURLToPath(new URL('.', import.meta.url));
 const envFile = join(rootDirectory, '.env');
@@ -44,17 +44,6 @@ const foundryModel = await foundryProject.addModelDeployment(
 await foundryModel.withProperties(async (deployment) => {
   await deployment.skuCapacity.set(10);
 });
-
-const agentIdentityName = 'agent-identity';
-const agentIdentity = await builder.addAzureUserAssignedIdentity(agentIdentityName);
-await agentIdentity.withFoundryRoleAssignments(foundry, [
-  FoundryRole.CognitiveServicesOpenAIUser,
-]);
-const agentFoundryRoleAssignment = await builder
-  .addBicepTemplate('agent-foundry-user-role', './infra/agent-foundry-user-role.bicep')
-  .withParameter('identityNamePrefix', { value: agentIdentityName.replaceAll('-', '_') })
-  .withParameter('foundryAccountName', { value: foundry.getOutput('name') })
-  .withParameter('foundryProjectName', { value: foundryProject.getOutput('name') });
 
 const neisApiKey = await builder.addParameter('neis-api-key', {
   value: process.env.NEIS_API_KEY,
@@ -104,16 +93,27 @@ const agent = await builder
       });
   })
   .withEnvironment('MCP_URL', mcpEndpoint)
-  .withAzureUserAssignedIdentity(agentIdentity)
   .withReference(foundryProject)
   .withReference(foundryModel)
   .withReference(mcp)
-  .waitFor(agentFoundryRoleAssignment)
   .waitFor(foundryProject)
   .waitFor(foundryModel)
   .waitFor(mcp)
   .withHttpHealthCheck({ path: '/health' })
   .withComputeEnvironment(aca);
+
+if (await builder.executionContext().isPublishMode()) {
+  const agentIdentity = await builder.addAzureUserAssignedIdentity('agent-identity');
+  const agentFoundryRoleAssignment = await builder
+    .addBicepTemplate('agent-foundry-user-role', './infra/agent-foundry-user-role.bicep')
+    .withParameter('identityName', { value: agentIdentity.getOutput('name') })
+    .withParameter('identityPrincipalId', { value: agentIdentity.getOutput('principalId') })
+    .withParameter('foundryAccountName', { value: foundry.getOutput('name') })
+    .withParameter('foundryProjectName', { value: foundryProject.getOutput('name') });
+
+  // Foundry references grant their account roles to the attached identity.
+  await agent.withAzureUserAssignedIdentity(agentIdentity).waitFor(agentFoundryRoleAssignment);
+}
 
 const agentEndpoint = agent.getEndpoint('http');
 

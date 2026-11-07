@@ -1,0 +1,110 @@
+import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
+const rootDirectory = fileURLToPath(new URL('../', import.meta.url));
+const fakeSecret = 'apphost-publish-test-secret';
+const openAiUserRole = '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd';
+
+async function listFiles(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = await Promise.all(entries.map(async (entry) => {
+    const path = join(directory, entry.name);
+    return entry.isDirectory() ? listFiles(path) : [path];
+  }));
+  return files.flat();
+}
+
+test('Azure publication preserves identity, roles, endpoints, and secret boundaries', {
+  timeout: 180_000,
+}, async (t) => {
+  const output = await mkdtemp(join(tmpdir(), 'aspire-apphost-test-'));
+  t.after(() => rm(output, { recursive: true, force: true }));
+
+  try {
+    await execFileAsync('aspire', [
+      'publish',
+      '--apphost', rootDirectory,
+      '--no-build',
+      '--environment', 'apphost-test',
+      '--output-path', output,
+      '--non-interactive',
+      '--nologo',
+    ], {
+      cwd: rootDirectory,
+      env: {
+        ...process.env,
+        NEIS_API_KEY: fakeSecret,
+        Parameters__neis_api_key: fakeSecret,
+        Azure__SubscriptionId: '00000000-0000-0000-0000-000000000001',
+        Azure__TenantId: '00000000-0000-0000-0000-000000000002',
+        Azure__Location: 'koreacentral',
+        Azure__ResourceGroup: 'rg-aspire-artifact-check',
+      },
+      timeout: 150_000,
+    });
+  } catch (error) {
+    throw new Error(`Aspire publish failed (${error.code ?? 'unknown error'}); run npm run build first.`);
+  }
+
+  const readArtifact = (...path) => readFile(join(output, ...path), 'utf8');
+  const [main, identity, projectRole, accountRole, foundry, agent, api, mcp, web] = await Promise.all([
+    readArtifact('main.bicep'),
+    readArtifact('agent-identity', 'agent-identity.bicep'),
+    readArtifact('agent-foundry-user-role', 'agent-foundry-user-role.bicep'),
+    readArtifact('agent-roles-foundry', 'agent-roles-foundry.bicep'),
+    readArtifact('foundry', 'foundry.bicep'),
+    readArtifact('agent', 'agent.bicep'),
+    readArtifact('api', 'api.bicep'),
+    readArtifact('mcp', 'mcp.bicep'),
+    readArtifact('web', 'web.bicep'),
+  ]);
+
+  for (const expression of [
+    'identityName: agent_identity.outputs.name',
+    'identityPrincipalId: agent_identity.outputs.principalId',
+    'foundryAccountName: foundry.outputs.name',
+    'foundryProjectName: foundry_project.outputs.name',
+    'principalId: agent_identity.outputs.principalId',
+  ]) {
+    assert.ok(main.includes(expression), `Missing identity dependency: ${expression}`);
+  }
+  assert.ok(identity.includes('output name string = agent_identity.name'));
+  assert.ok(identity.includes('output principalId string = agent_identity.properties.principalId'));
+  assert.ok(projectRole.includes('53ca6127-db72-4b80-b1b0-d745d6d5456d'));
+  assert.ok(projectRole.includes('scope: foundryProject'));
+  assert.ok(projectRole.includes('name: guid(foundryProject.id, identityName, foundryUserRoleDefinitionId)'));
+  assert.ok(projectRole.includes('principalId: identityPrincipalId'));
+  assert.ok(accountRole.includes(openAiUserRole));
+  assert.ok(accountRole.includes('scope: foundry'));
+  assert.ok(foundry.includes("name: 'gpt-5-mini'"));
+  assert.ok(foundry.includes('capacity: 10'));
+
+  assert.ok(agent.includes("type: 'UserAssigned'"));
+  assert.ok(agent.includes("'${agent_identity_outputs_id}'"));
+  assert.match(agent, /name: 'AZURE_CLIENT_ID'\s+value: agent_identity_outputs_clientid/);
+  assert.match(agent, /name: 'AZURE_TOKEN_CREDENTIALS'\s+value: 'ManagedIdentityCredential'/);
+  assert.ok(agent.includes("value: 'https://mcp.internal."));
+  for (const internal of [api, mcp, agent]) {
+    assert.match(internal, /ingress:\s*\{\s*external: false/);
+  }
+  assert.match(web, /ingress:\s*\{\s*external: true\s+targetPort: 8080/);
+  assert.ok(web.includes("value: 'https://api.internal."));
+  assert.ok(web.includes("value: 'https://agent.internal."));
+
+  const roleFiles = [];
+  for (const path of await listFiles(output)) {
+    const contents = await readFile(path);
+    assert.equal(contents.includes(fakeSecret), false, 'A secret was written to a published artifact.');
+    if (contents.includes(openAiUserRole)) {
+      roleFiles.push(path);
+    }
+  }
+  assert.deepEqual(roleFiles, [join(output, 'agent-roles-foundry', 'agent-roles-foundry.bicep')]);
+});
