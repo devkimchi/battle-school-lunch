@@ -7,11 +7,12 @@ import { loadEnvFile } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { FoundryModels, FoundryRole, createBuilder } from './.aspire/modules/aspire.mjs';
 
-if (existsSync('.env')) {
-  loadEnvFile('.env');
+const rootDirectory = fileURLToPath(new URL('.', import.meta.url));
+const envFile = join(rootDirectory, '.env');
+if (existsSync(envFile)) {
+  loadEnvFile(envFile);
 }
 
-const rootDirectory = fileURLToPath(new URL('.', import.meta.url));
 const generatedAgentDirectory = join(rootDirectory, 'src', 'agent', '.generated');
 mkdirSync(generatedAgentDirectory, { recursive: true });
 copyFileSync(
@@ -20,6 +21,17 @@ copyFileSync(
 );
 
 const builder = await createBuilder();
+
+const configuration = builder.getConfiguration();
+for (const name of ['SubscriptionId', 'Location', 'TenantId', 'ResourceGroup']) {
+  const value = process.env[`Azure__${name}`];
+  if (value) {
+    const section = await configuration.getSection(`Azure:${name}`);
+    if ((await section.value.get()) === null) {
+      await section.value.set(value);
+    }
+  }
+}
 
 const aca = await builder.addAzureContainerAppEnvironment('aca');
 
