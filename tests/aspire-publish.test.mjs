@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -24,8 +24,10 @@ async function listFiles(directory) {
 test('Azure publication preserves identity, roles, endpoints, and secret boundaries', {
   timeout: 180_000,
 }, async (t) => {
-  const output = await mkdtemp(join(tmpdir(), 'aspire-apphost-test-'));
-  t.after(() => rm(output, { recursive: true, force: true }));
+  const testDirectory = await mkdtemp(join(tmpdir(), 'aspire-apphost-test-'));
+  const output = join(testDirectory, 'output');
+  const aspireHome = join(testDirectory, 'aspire-home');
+  t.after(() => rm(testDirectory, { recursive: true, force: true }));
 
   try {
     await execFileAsync('aspire', [
@@ -40,6 +42,7 @@ test('Azure publication preserves identity, roles, endpoints, and secret boundar
       cwd: rootDirectory,
       env: {
         ...process.env,
+        ASPIRE_HOME: aspireHome,
         NEIS_API_KEY: fakeSecret,
         Parameters__neis_api_key: fakeSecret,
         Azure__SubscriptionId: '00000000-0000-0000-0000-000000000001',
@@ -52,6 +55,11 @@ test('Azure publication preserves identity, roles, endpoints, and secret boundar
   } catch (error) {
     throw new Error(`Aspire publish failed (${error.code ?? 'unknown error'}); run npm run build first.`);
   }
+
+  const stateFiles = await listFiles(join(aspireHome, 'deployments'));
+  const stateFile = stateFiles.find((path) => basename(path) === 'apphost-test.json');
+  assert.ok(stateFile, 'deployment state must be stored in the temporary Aspire home');
+  assert.ok((await readFile(stateFile, 'utf8')).includes(fakeSecret));
 
   const readArtifact = (...path) => readFile(join(output, ...path), 'utf8');
   const [main, identity, projectRole, accountRole, foundry, agent, api, mcp, web] = await Promise.all([
