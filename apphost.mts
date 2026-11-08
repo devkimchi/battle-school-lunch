@@ -5,7 +5,7 @@ import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadEnvFile } from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { FoundryModels, createBuilder } from './.aspire/modules/aspire.mjs';
+import { createBuilder } from './.aspire/modules/aspire.mjs';
 
 const rootDirectory = fileURLToPath(new URL('.', import.meta.url));
 const envFile = join(rootDirectory, '.env');
@@ -23,6 +23,14 @@ copyFileSync(
 const builder = await createBuilder();
 
 const configuration = builder.getConfiguration();
+const copilotModelSection = await configuration.getSection('Parameters:copilot-model');
+const copilotModelValue = (await copilotModelSection.value.get())
+  ?? process.env.COPILOT_MODEL
+  ?? 'auto';
+const copilotModel = await builder.addParameter('copilot-model', {
+  value: copilotModelValue,
+});
+
 for (const name of ['SubscriptionId', 'Location', 'TenantId', 'ResourceGroup']) {
   const value = process.env[`Azure__${name}`];
   if (value) {
@@ -34,16 +42,6 @@ for (const name of ['SubscriptionId', 'Location', 'TenantId', 'ResourceGroup']) 
 }
 
 const aca = await builder.addAzureContainerAppEnvironment('aca');
-
-const foundry = await builder.addFoundry('foundry');
-const foundryProject = await foundry.addProject('foundry-project');
-const foundryModel = await foundryProject.addModelDeployment(
-  'foundry-model',
-  FoundryModels.OpenAI.Gpt5Mini,
-);
-await foundryModel.withProperties(async (deployment) => {
-  await deployment.skuCapacity.set(10);
-});
 
 const neisApiKey = await builder.addParameter('neis-api-key', {
   value: process.env.NEIS_API_KEY,
@@ -82,6 +80,7 @@ const mcp = await builder
 
 const mcpEndpoint = mcp.getEndpoint('http');
 
+const isPublishMode = await builder.executionContext().isPublishMode();
 const agent = await builder
   .addUvicornApp('agent', './src/agent', 'app.main:app')
   .withUv()
@@ -93,26 +92,21 @@ const agent = await builder
       });
   })
   .withEnvironment('MCP_URL', mcpEndpoint)
-  .withReference(foundryProject)
-  .withReference(foundryModel)
   .withReference(mcp)
-  .waitFor(foundryProject)
-  .waitFor(foundryModel)
   .waitFor(mcp)
+  .withEnvironment('COPILOT_MODEL', copilotModel)
   .withHttpHealthCheck({ path: '/health' })
   .withComputeEnvironment(aca);
 
-if (await builder.executionContext().isPublishMode()) {
-  const agentIdentity = await builder.addAzureUserAssignedIdentity('agent-identity');
-  const agentFoundryRoleAssignment = await builder
-    .addBicepTemplate('agent-foundry-user-role', './infra/agent-foundry-user-role.bicep')
-    .withParameter('identityName', { value: agentIdentity.getOutput('name') })
-    .withParameter('identityPrincipalId', { value: agentIdentity.getOutput('principalId') })
-    .withParameter('foundryAccountName', { value: foundry.getOutput('name') })
-    .withParameter('foundryProjectName', { value: foundryProject.getOutput('name') });
-
-  // Foundry references grant their account roles to the attached identity.
-  await agent.withAzureUserAssignedIdentity(agentIdentity).waitFor(agentFoundryRoleAssignment);
+if (isPublishMode) {
+  const copilotGithubToken = await builder.addParameter('copilot-github-token', {
+    secret: true,
+  });
+  await agent
+    .withEnvironment('COPILOT_AUTH_MODE', 'pat')
+    .withEnvironment('COPILOT_GITHUB_TOKEN', copilotGithubToken);
+} else {
+  await agent.withEnvironment('COPILOT_AUTH_MODE', 'local');
 }
 
 const agentEndpoint = agent.getEndpoint('http');

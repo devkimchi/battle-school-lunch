@@ -9,7 +9,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DEBIAN_FRONTEND=noninteractive \
     UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
-    UV_PROJECT_ENVIRONMENT=/app/.venv
+    UV_PROJECT_ENVIRONMENT=/app/.venv \
+    COPILOT_CLI_EXTRACT_DIR=/opt/copilot-sdk-runtime
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates \
@@ -26,24 +27,32 @@ COPY agent/app ./app
 COPY agent/instructions ./instructions
 COPY agent/.generated/EVALUATION-RUBRIC.md ./EVALUATION-RUBRIC.md
 RUN uv sync --frozen --no-dev
+RUN /app/.venv/bin/python -m copilot download-runtime \
+ && /app/.venv/bin/python -c "from pathlib import Path; from copilot._cli_download import ensure_runtime_wrapper; p=Path(ensure_runtime_wrapper()); assert p.is_file() and p.stat().st_size > 0; assert (p.parent / 'runtime.node').is_file() and (p.parent / '.hostless-runtime-assets-v2').is_file()"
 
 FROM python:${PYTHON_VERSION}-slim-bookworm AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:${PATH}" \
+    HOME=/home/appuser \
+    COPILOT_CLI_EXTRACT_DIR=/opt/copilot-sdk-runtime \
+    COPILOT_SKIP_CLI_DOWNLOAD=1 \
     PORT=8000
 
 RUN groupadd --system --gid 10001 appuser \
  && useradd --system --uid 10001 --gid appuser \
-      --home-dir /app --shell /usr/sbin/nologin appuser
+      --home-dir /home/appuser --shell /usr/sbin/nologin appuser \
+ && install -d -o appuser -g appuser /home/appuser /home/appuser/.copilot /app/.copilot-runtime
 
 WORKDIR /app
 
-COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
-COPY --from=builder --chown=appuser:appuser /app/app /app/app
-COPY --from=builder --chown=appuser:appuser /app/instructions /app/instructions
-COPY --from=builder --chown=appuser:appuser /app/EVALUATION-RUBRIC.md /app/EVALUATION-RUBRIC.md
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/app /app/app
+COPY --from=builder /app/instructions /app/instructions
+COPY --from=builder /app/EVALUATION-RUBRIC.md /app/EVALUATION-RUBRIC.md
+COPY --from=builder /opt/copilot-sdk-runtime /opt/copilot-sdk-runtime
+RUN chmod -R a+rX /opt/copilot-sdk-runtime
 
 USER appuser
 

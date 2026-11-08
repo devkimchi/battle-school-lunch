@@ -120,6 +120,9 @@ npm run test:coverage    # 커버리지 리포트 (HTML은 ./coverage)
   `:8000`에서 실행 중이어야 합니다. 백엔드를 띄우거나 `vite.config.ts`의
   프록시 대상을 수정하세요.
 - **학교 후보/분석 요청 실패** — `../agent`가 `:8002`에서 실행 중이고 해당
-  서비스의 MCP·Foundry 설정과 Azure 인증이 유효한지 확인하세요.
+  서비스의 MCP 설정과 Copilot 인증이 유효한지 확인하세요. 로컬에서는 개인
+  Copilot 계정 로그인, Azure에서는 배포용 `COPILOT_GITHUB_TOKEN` Actions secret을
+  확인합니다. `az login`은 Azure 리소스 배포용이며 Copilot 로그인을 대신하지
+  않습니다.
 - **빌드 후 화면이 흰색** — `dist/`를 직접 열면 라우팅이 동작하지 않습니다.
   반드시 `npm run preview` 또는 nginx 컨테이너를 사용하세요.

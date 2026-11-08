@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, readdir, rm, rmdir, writeFile } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
+import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -9,8 +9,8 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const rootDirectory = fileURLToPath(new URL('../', import.meta.url));
-const fakeSecret = 'apphost-publish-test-secret';
-const openAiUserRole = '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd';
+const fakeNeisSecret = 'apphost-publish-neis-secret';
+const fakeCopilotToken = 'apphost-publish-copilot-token';
 
 async function listFilesIfExists(directory) {
   try {
@@ -53,10 +53,10 @@ async function listFiles(directory) {
   return files.flat();
 }
 
-test('Azure publication preserves identity, roles, endpoints, and secret boundaries', {
+test('Azure publication uses Copilot PAT securely and preserves endpoint boundaries', {
   timeout: 180_000,
 }, async (t) => {
-  const testDirectory = await mkdtemp(join(tmpdir(), 'aspire-apphost-test-'));
+  const testDirectory = await mkdtemp(join(rootDirectory, '.aspire-publish-test-'));
   const output = join(testDirectory, 'output');
   const aspireHome = join(testDirectory, 'aspire-home');
   const userAspireHome = process.env.ASPIRE_HOME || join(homedir(), '.aspire');
@@ -81,8 +81,10 @@ test('Azure publication preserves identity, roles, endpoints, and secret boundar
       env: {
         ...process.env,
         ASPIRE_HOME: aspireHome,
-        NEIS_API_KEY: fakeSecret,
-        Parameters__neis_api_key: fakeSecret,
+        NEIS_API_KEY: fakeNeisSecret,
+        Parameters__neis_api_key: fakeNeisSecret,
+        Parameters__copilot_github_token: fakeCopilotToken,
+        Parameters__copilot_model: 'auto',
         Azure__SubscriptionId: '00000000-0000-0000-0000-000000000001',
         Azure__TenantId: '00000000-0000-0000-0000-000000000002',
         Azure__Location: 'koreacentral',
@@ -95,42 +97,21 @@ test('Azure publication preserves identity, roles, endpoints, and secret boundar
   }
 
   const readArtifact = (...path) => readFile(join(output, ...path), 'utf8');
-  const [main, identity, projectRole, accountRole, foundry, agent, api, mcp, web] = await Promise.all([
+  const [main, agent, api, mcp, web] = await Promise.all([
     readArtifact('main.bicep'),
-    readArtifact('agent-identity', 'agent-identity.bicep'),
-    readArtifact('agent-foundry-user-role', 'agent-foundry-user-role.bicep'),
-    readArtifact('agent-roles-foundry', 'agent-roles-foundry.bicep'),
-    readArtifact('foundry', 'foundry.bicep'),
     readArtifact('agent', 'agent.bicep'),
     readArtifact('api', 'api.bicep'),
     readArtifact('mcp', 'mcp.bicep'),
     readArtifact('web', 'web.bicep'),
   ]);
 
-  for (const expression of [
-    'identityName: agent_identity.outputs.name',
-    'identityPrincipalId: agent_identity.outputs.principalId',
-    'foundryAccountName: foundry.outputs.name',
-    'foundryProjectName: foundry_project.outputs.name',
-    'principalId: agent_identity.outputs.principalId',
-  ]) {
-    assert.ok(main.includes(expression), `Missing identity dependency: ${expression}`);
-  }
-  assert.ok(identity.includes('output name string = agent_identity.name'));
-  assert.ok(identity.includes('output principalId string = agent_identity.properties.principalId'));
-  assert.ok(projectRole.includes('53ca6127-db72-4b80-b1b0-d745d6d5456d'));
-  assert.ok(projectRole.includes('scope: foundryProject'));
-  assert.ok(projectRole.includes('name: guid(foundryProject.id, identityName, foundryUserRoleDefinitionId)'));
-  assert.ok(projectRole.includes('principalId: identityPrincipalId'));
-  assert.ok(accountRole.includes(openAiUserRole));
-  assert.ok(accountRole.includes('scope: foundry'));
-  assert.ok(foundry.includes("name: 'gpt-5-mini'"));
-  assert.ok(foundry.includes('capacity: 10'));
-
-  assert.ok(agent.includes("type: 'UserAssigned'"));
-  assert.ok(agent.includes("'${agent_identity_outputs_id}'"));
-  assert.match(agent, /name: 'AZURE_CLIENT_ID'\s+value: agent_identity_outputs_clientid/);
-  assert.match(agent, /name: 'AZURE_TOKEN_CREDENTIALS'\s+value: 'ManagedIdentityCredential'/);
+  assert.doesNotMatch(main, /foundry|agent-identity|roleAssignment/i);
+  assert.match(agent, /param copilot_model_value string/);
+  assert.match(agent, /@secure\(\)\s+param copilot_github_token_value string/);
+  assert.match(agent, /name: 'COPILOT_AUTH_MODE'\s+value: 'pat'/);
+  assert.match(agent, /name: 'COPILOT_MODEL'\s+value: copilot_model_value/);
+  assert.match(agent, /name: 'COPILOT_GITHUB_TOKEN'/);
+  assert.doesNotMatch(agent, /AZURE_CLIENT_ID|AZURE_TOKEN_CREDENTIALS/);
   assert.ok(agent.includes("value: 'https://mcp.internal."));
   for (const internal of [api, mcp, agent]) {
     assert.match(internal, /ingress:\s*\{\s*external: false/);
@@ -142,10 +123,16 @@ test('Azure publication preserves identity, roles, endpoints, and secret boundar
   const roleFiles = [];
   for (const path of await listFiles(output)) {
     const contents = await readFile(path);
-    assert.equal(contents.includes(fakeSecret), false, 'A secret was written to a published artifact.');
-    if (contents.includes(openAiUserRole)) {
+    assert.equal(contents.includes(fakeNeisSecret), false, 'The NEIS secret was written to a published artifact.');
+    assert.equal(contents.includes(fakeCopilotToken), false, 'The Copilot token was written to a published artifact.');
+    assert.doesNotMatch(contents.toString('utf8'), /foundry|agent-identity|agent-roles/i);
+    if (/foundry|agent-identity|agent-roles/i.test(path)) {
       roleFiles.push(path);
     }
   }
-  assert.deepEqual(roleFiles, [join(output, 'agent-roles-foundry', 'agent-roles-foundry.bicep')]);
+  assert.deepEqual(roleFiles, []);
+
+  for (const service of [api, mcp, web]) {
+    assert.doesNotMatch(service, /COPILOT_GITHUB_TOKEN|apphost-publish-copilot-token/);
+  }
 });

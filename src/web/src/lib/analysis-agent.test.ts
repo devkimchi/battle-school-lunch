@@ -43,7 +43,7 @@ describe("AnalysisAgentClient", () => {
         },
       ) => {
         subscriber.onRunErrorEvent({
-          event: { message: "Foundry model request failed." },
+          event: { message: "AI model request failed." },
         });
         return { result: null, newMessages: [] };
       },
@@ -60,6 +60,12 @@ describe("AnalysisAgentClient", () => {
         "분석해 주세요.",
         vi.fn(),
       ),
-    ).rejects.toThrow("Foundry model request failed.");
+    ).rejects.toThrow("AI model request failed.");
+  });
+
+  it("aborts an active AG-UI run", () => {
+    client.abort();
+
+    expect(httpAgentMock.abortRun).toHaveBeenCalledOnce();
   });
 });

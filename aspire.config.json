@@ -18,7 +18,6 @@
   "packages": {
     "Aspire.Hosting.Python": "13.6.4",
     "Aspire.Hosting.JavaScript": "13.6.4",
-    "Aspire.Hosting.Azure.AppContainers": "13.6.4",
-    "Aspire.Hosting.Foundry": "13.6.4-preview.1.26523.11"
+    "Aspire.Hosting.Azure.AppContainers": "13.6.4"
   }
 }
