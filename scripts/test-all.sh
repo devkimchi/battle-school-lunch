@@ -9,6 +9,7 @@ echo "==> AppHost"
   cd "$ROOT_DIR"
   npm ci
   npm run build
+  npm test
 )
 
 for service in api mcp agent; do

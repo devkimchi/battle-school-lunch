@@ -17,6 +17,7 @@
     "dev": "npm run aspire:start",
     "prebuild": "npm run aspire:lint",
     "build": "npm run aspire:build",
+    "test": "node --experimental-vm-modules --no-warnings --test tests/apphost.test.mjs tests/aspire-publish.test.mjs",
     "watch": "npm run aspire:dev"
   },
   "dependencies": {
