@@ -1,5 +1,14 @@
 #Requires -Version 7.0
 
+<#
+.SYNOPSIS
+Configure GitHub Actions for Aspire deployment to Azure.
+
+.DESCRIPTION
+Sets the Azure deployment identity, repository variables, and NEIS API key.
+Before enabling deployment, add COPILOT_GITHUB_TOKEN as a repository Actions
+secret using your own fine-grained PAT. This script does not create or store it.
+#>
 [CmdletBinding()]
 param(
     [string]$Repository = $env:GITHUB_REPOSITORY,
@@ -300,7 +309,9 @@ for ($i = 0; $i -lt $federatedCredentialNames.Count; $i++) {
 }
 
 if ($EnableDeployment.IsPresent) {
-    Write-Host "You can now push your commit to the remote repository to trigger deployment."
+    Write-Host "Before pushing to deploy, add COPILOT_GITHUB_TOKEN as a repository Actions secret using your own fine-grained PAT."
+    Write-Host "This script does not create or store the Copilot PAT."
 } else {
-    Write-Host "Deployment remains disabled. Re-run with -EnableDeployment before pushing to deploy."
+    Write-Host "Deployment remains disabled. Add COPILOT_GITHUB_TOKEN as a repository Actions secret using your own fine-grained PAT, then re-run with -EnableDeployment before pushing to deploy."
+    Write-Host "This script does not create or store the Copilot PAT."
 }

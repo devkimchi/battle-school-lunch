@@ -43,7 +43,7 @@ describe("AnalysisAgentClient", () => {
         },
       ) => {
         subscriber.onRunErrorEvent({
-          event: { message: "Foundry model request failed." },
+          event: { message: "AI model request failed." },
         });
         return { result: null, newMessages: [] };
       },
@@ -60,6 +60,37 @@ describe("AnalysisAgentClient", () => {
         "분석해 주세요.",
         vi.fn(),
       ),
-    ).rejects.toThrow("Foundry model request failed.");
+    ).rejects.toThrow("AI model request failed.");
+  });
+
+  it("aborts an active AG-UI run", () => {
+    client.abort();
+
+    expect(httpAgentMock.abortRun).toHaveBeenCalledOnce();
+  });
+
+  it("forwards streamed area progress and clears previous progress for a new run", async () => {
+    const snapshot = {
+      ...INITIAL_ANALYSIS_STATE,
+      phase: "evaluating" as const,
+      evaluationProgress: { nutrition: "completed" as const, health: "running" as const },
+    };
+    httpAgentMock.runAgent.mockImplementation(
+      async (_parameters: unknown, subscriber: {
+        onStateSnapshotEvent: (params: { event: { snapshot: typeof snapshot } }) => void;
+      }) => {
+        subscriber.onStateSnapshotEvent({ event: { snapshot } });
+      },
+    );
+    const onState = vi.fn();
+    await client.analyze(snapshot, "비교해 주세요.", onState);
+    expect(httpAgentMock.setState).toHaveBeenCalledWith(
+      expect.objectContaining({ evaluationProgress: {} }),
+    );
+    expect(onState).toHaveBeenCalledWith(snapshot);
+    await client.loadCandidates(onState);
+    expect(httpAgentMock.setState).toHaveBeenLastCalledWith(
+      expect.objectContaining({ evaluationProgress: {} }),
+    );
   });
 });

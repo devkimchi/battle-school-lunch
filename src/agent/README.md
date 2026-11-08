@@ -1,9 +1,9 @@
 # 급식 비교 멀티에이전트 서비스
 
-Microsoft Agent Framework로 두 학교의 같은 날짜 중식을 비교하는 Python
-서비스입니다. 브라우저에는 AG-UI `POST /agent` + SSE endpoint를 제공하고, 학교와
-중식 데이터는 기존 MCP 서버의 `getSchoolInfo`, `getMealServiceDietInfo` 도구로만
-조회합니다.
+Microsoft Agent Framework와 Copilot SDK로 두 학교의 같은 날짜 중식을 비교하는
+Python 서비스입니다. 브라우저에는 AG-UI `POST /agent` + SSE endpoint를 제공하고,
+학교와 중식 데이터는 기존 MCP 서버의 `getSchoolInfo`, `getMealServiceDietInfo`
+도구로만 조회합니다.
 
 ## 워크플로
 
@@ -12,6 +12,12 @@ Microsoft Agent Framework로 두 학교의 같은 날짜 중식을 비교하는 
 3. Nutrition(45%), Health(30%), Menu Quality(25%) Agent를 Concurrent 실행합니다.
 4. 코드는 `(평점 / 5) × 가중치`로 환산 점수와 100점 총점을 계산합니다.
 5. AI Judge는 점수를 바꾸지 않고 근거, 개선안과 데이터 한계를 종합합니다.
+
+AG-UI shared state의 `evaluationProgress`는 실제 executor 이벤트에 따라 영역별
+`pending` / `running` / `completed` / `failed` 상태를 전달합니다. 각 전문 에이전트는
+두 학교를 한 요청에서 함께 평가하므로 같은 영역의 진행 상태는 두 학교에 공통입니다.
+전문 평가가 모두 끝나면 `judging` 단계로 전환하며 실패 시 완료된 영역의 상태를
+유지합니다.
 
 평가 기준은 루트 [`EVALUATION-RUBRIC.md`](../../EVALUATION-RUBRIC.md), 역할별
 지침은 [`instructions/`](./instructions/)의 Markdown 파일에서 관리합니다.
@@ -22,39 +28,50 @@ context에 포함합니다.
 
 | 이름 | 필수 | 설명 |
 | --- | --- | --- |
-| `FOUNDRY_PROJECT_ENDPOINT` | 조건부 | 네이티브 Microsoft Foundry project endpoint |
-| `FOUNDRY_PROJECT_URI` | 조건부 | Aspire Foundry project reference가 주입하는 endpoint |
-| `FOUNDRY_MODEL_DEPLOYMENT_NAME` | 조건부 | 네이티브 채팅 모델 deployment name |
-| `FOUNDRY_MODEL_DEPLOYMENT` | 조건부 | deployment name의 호환 별칭 |
-| `FOUNDRY_MODEL_MODELNAME` | 조건부 | Aspire Foundry model reference가 주입하는 deployment name |
+| `COPILOT_AUTH_MODE` | 아니요 | 기본 `local`; 배포 Agent는 AppHost가 `pat`로 설정 |
+| `COPILOT_MODEL` | 아니요 | 기본 `auto`; Copilot SDK 모델 ID로 변경 가능 |
+| `COPILOT_GITHUB_TOKEN` | PAT 모드만 | Azure 배포에서 Actions secret으로 주입하는 사용자 소유 fine-grained PAT |
 | `MCP_URL` | 아니요 | 기본 `http://127.0.0.1:8001/mcp`; base URL이면 `/mcp` 자동 보완 |
 | `PORT` | 아니요 | 기본 `8002` |
 
-인증 비밀은 설정에 저장하지 않습니다. 로컬에서는 `az login`의 Azure CLI 자격
-증명, Azure Container Apps에서는 관리 ID를 `DefaultAzureCredential`이 일반적으로
-사용합니다. 로컬에서 다른 자격 증명 소스가 먼저 선택될 수도 있습니다.
+로컬 `local` 모드는 개발자의 개인 Copilot 로그인 사용자로 인증하며 PAT가
+필요하지 않습니다. Azure 배포의 `pat` 모드는 `COPILOT_GITHUB_TOKEN`을 명시적으로
+사용하고 로그인된 사용자나 다른 환경 토큰으로 fallback하지 않습니다. 배포 PAT는
+GitHub fine-grained PAT의 `Copilot Requests` 권한을 가져야 합니다. `az login`은
+Azure 리소스 프로비저닝용이며 Copilot 추론 인증과는 별개입니다.
+
+Aspire 모델 설정 우선순위는 명시적 `copilot-model` parameter > 프로세스
+`COPILOT_MODEL` > 저장소 루트 `.env`의 `COPILOT_MODEL` > 기본값 `auto`입니다.
+별도 모델을 지정하지 않으면 SDK가 `auto`를 사용합니다. 토큰은 `.env`, 명령
+인자, 로그 또는 프런트엔드에 기록하지 않습니다.
 
 ## 실행
 
 MCP 서버를 먼저 `127.0.0.1:8001`에서 실행하고:
 
 ```bash
-az login
 cd src/agent
 uv sync --all-groups
 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8002
 ```
 
+실행 전에 Copilot CLI에서 개인 계정으로 로그인합니다. `az login`은 Azure 배포를
+위한 것이므로 로컬 Copilot 로그인 대신 사용할 수 없습니다. 배포용 PAT는 로컬
+실행에 필요하지 않습니다.
+
 - AG-UI: <http://127.0.0.1:8002/agent>
 - Health: <http://127.0.0.1:8002/health>
 
-저장소 루트의 `npm run dev`를 사용하면 Aspire Foundry integration이 account,
-project와 10K TPM `gpt-5-mini` deployment를 Azure에 프로비저닝하므로 권한과
-비용이 필요할 수 있습니다. 로컬에서는 배포용 관리 ID와 프로젝트 역할을 만들지
-않습니다. Azure 게시·배포 시 Agent 전용 user-assigned identity에는 account
-범위 `Cognitive Services OpenAI User`와 project 범위 `Azure AI User` 역할이
-할당됩니다. Aspire는 `mcp → agent → web` 순서로 준비 상태를 관리합니다.
-`/health` 성공은 Foundry 인증 또는 실제 모델 추론의 성공을 의미하지 않습니다.
+저장소 루트에서 `npm run dev`를 실행하면 Aspire가 `mcp → agent → web` 순서로
+준비 상태를 관리합니다. Agent의 `/health` 성공은 Copilot 인증이나 모델 추론 성공을
+의미하지 않습니다. `COPILOT_GITHUB_TOKEN` Actions secret을 교체한 뒤에는
+Aspire 배포를 다시 실행해 새 토큰이 Agent Container App revision에 반영되었는지
+확인합니다. 실제 배포는 대상 환경을 확인한 뒤 진행합니다.
+
+컨테이너 이미지 빌드는 Copilot SDK runtime을 미리 내려받아 포함하도록
+구성되어 런타임 다운로드에 의존하지 않게 합니다. 최종 이미지를 빌드하고
+UID 10001 non-root 사용자로 SDK runtime 시작·종료와 실행 파일 접근 권한을
+확인했습니다. 실제 Copilot 추론은 자동 이미지 검증에서 실행하지 않습니다.
 
 ## 테스트
 
@@ -66,13 +83,14 @@ uv run pytest -m unit
 uv run pytest -m integration
 ```
 
-테스트는 MCP 데이터 소스와 Foundry chat client를 경계에서 대체하므로 실제 NEIS나
-모델을 호출하지 않습니다.
+테스트는 MCP 데이터 소스와 Copilot SDK client/runtime 경계를 fake로 대체하므로
+실제 NEIS나 Copilot 모델을 호출하지 않으며 Azure CLI 로그인 또는 PAT가 필요하지
+않습니다.
 
 ## 오류와 데이터 한계
 
 - 선택 날짜의 중식이 한 곳이라도 없으면 `DATA_UNAVAILABLE` 상태로 평가 전에
   중단합니다.
-- 예상하지 못한 MCP/Foundry 실패는 AG-UI `RUN_ERROR`로 전달합니다.
+- 예상하지 못한 MCP/Copilot SDK 실패는 AG-UI `RUN_ERROR`로 전달합니다.
 - NEIS에 정량 나트륨·당류·포화지방이 없으면 정성적 추정임을 명시하며 임의 수치를
   만들지 않습니다.

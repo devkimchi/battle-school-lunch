@@ -7,6 +7,7 @@ from datetime import date
 from typing import Any, cast
 
 from ag_ui.core import (
+    ActivitySnapshotEvent,
     BaseEvent,
     CustomEvent,
     RunErrorEvent,
@@ -25,7 +26,14 @@ from agent_framework.ag_ui import AgentFrameworkWorkflow
 from .data import LunchDataError, LunchDataSource
 from .dates import validate_analysis_date
 from .instructions import InstructionLoader
-from .schemas import AgentError, AnalysisResult, AnalysisState, SchoolCandidate
+from .schemas import (
+    AgentError,
+    AnalysisResult,
+    AnalysisState,
+    EvaluationArea,
+    EvaluationStatus,
+    SchoolCandidate,
+)
 from .workflow import build_evaluation_workflow, evaluation_prompt
 
 logger = logging.getLogger(__name__)
@@ -98,6 +106,7 @@ class LunchAnalysisAGUIWorkflow(AgentFrameworkWorkflow):
         self,
         state: AnalysisState,
     ) -> AsyncGenerator[BaseEvent]:
+        state.evaluation_progress = {}
         yield self._state_event(state, phase="loading_candidates", error=None)
         candidates = await self._data_source.random_schools(10)
         yield self._state_event(
@@ -119,6 +128,7 @@ class LunchAnalysisAGUIWorkflow(AgentFrameworkWorkflow):
         thread_id: str,
         run_id: str,
     ) -> AsyncGenerator[BaseEvent]:
+        state.evaluation_progress = {area: "pending" for area in EvaluationArea}
         if len(state.selected_school_codes) != 2:
             raise LunchDataError("서로 다른 학교 두 곳을 선택해 주세요.")
         if state.selected_school_codes[0] == state.selected_school_codes[1]:
@@ -167,8 +177,20 @@ class LunchAnalysisAGUIWorkflow(AgentFrameworkWorkflow):
         }
         result: AnalysisResult | None = None
         judging_emitted = False
+        executor_areas = {f"{area.value}-agent": area for area in EvaluationArea}
+        executor_statuses: dict[str, EvaluationStatus] = {
+            "in_progress": "running",
+            "completed": "completed",
+            "failed": "failed",
+        }
         async for event in nested.run(nested_input):
-            if isinstance(event, (StepStartedEvent, StepFinishedEvent)):
+            if isinstance(event, ActivitySnapshotEvent) and event.activity_type == "executor":
+                area = executor_areas.get(event.content.get("executor_id"))
+                status = executor_statuses.get(event.content.get("status"))
+                if area is not None and status is not None:
+                    state.evaluation_progress[area] = status
+                    yield self._state_event(state, phase="evaluating")
+            elif isinstance(event, (StepStartedEvent, StepFinishedEvent)):
                 if (
                     isinstance(event, StepStartedEvent)
                     and event.step_name == "judge"

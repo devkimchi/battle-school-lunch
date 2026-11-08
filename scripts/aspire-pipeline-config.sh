@@ -23,6 +23,8 @@ Options:
   --help                        Show this help
 
 Set NEIS_API_KEY in the environment or enter it at the secure prompt.
+Before deployment, add COPILOT_GITHUB_TOKEN as a repository Actions secret using
+your own fine-grained PAT. This script does not create or store the Copilot PAT.
 EOF
 }
 
@@ -255,7 +257,9 @@ for ((i = 0; i < ${#FEDERATED_CREDENTIAL_NAMES[@]}; i++)); do
 done
 
 if [[ "$AZURE_DEPLOYMENT" == "true" ]]; then
-  echo "You can now push your commit to the remote repository to trigger deployment."
+  echo "Before pushing to deploy, add COPILOT_GITHUB_TOKEN as a repository Actions secret using your own fine-grained PAT."
+  echo "This script does not create or store the Copilot PAT."
 else
-  echo "Deployment remains disabled. Re-run with --enable-deployment before pushing to deploy."
+  echo "Deployment remains disabled. Add COPILOT_GITHUB_TOKEN as a repository Actions secret using your own fine-grained PAT, then re-run with --enable-deployment before pushing to deploy."
+  echo "This script does not create or store the Copilot PAT."
 fi

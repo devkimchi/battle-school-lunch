@@ -63,3 +63,4 @@ $RECYCLE.BIN/
 .aspire/
 aspire-output/
 src/agent/.generated/
+src/agent/.copilot-runtime/

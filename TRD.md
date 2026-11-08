@@ -15,7 +15,7 @@ Web browser
 Frontend (React/Vite 개발 서버 또는 nginx 운영 컨테이너)
     ├─ /api/*  → Backend (FastAPI) → NEIS Open API
     └─ /agent  → Agent (FastAPI + Microsoft Agent Framework)
-                    ├─ DefaultAzureCredential → Microsoft Foundry model
+                    ├─ Copilot SDK → GitHub Copilot
                     └─ MCP Streamable HTTP /mcp
                            ▼
                        MCP server → NEIS Open API
@@ -37,7 +37,8 @@ NEIS Open API
 - 로컬에서는 TypeScript Aspire AppHost가 `api`, `mcp`, `agent`, `web`을 오케스트레이션한다.
 - Azure에서는 AppHost가 하나의 Container Apps Environment에 internal `api`, `mcp`,
   `agent`와 public `web`을 배포하며, nginx가 `/api`와 `/agent`를 내부 서비스로
-  프록시한다. Agent는 전용 user-assigned identity로 Foundry에 인증한다.
+  프록시한다. Agent의 Copilot 인증은 Azure 배포용 `az login`과 별개인 GitHub
+  Actions secret의 사용자 소유 PAT로 수행한다.
 - Azure 배포 토폴로지의 단일 원본은 `apphost.mts`이며 `aspire deploy`로 적용한다.
 
 ---
@@ -250,11 +251,20 @@ src/mcp/
 | --- | --- |
 | 언어/패키지 | Python 3.12+ / uv |
 | 웹·프로토콜 | FastAPI + `agent-framework-ag-ui` |
-| 에이전트 | Microsoft Agent Framework + `FoundryChatClient` |
-| 인증 | `DefaultAzureCredential` (로컬 Azure CLI, Azure 관리 ID) |
-| Aspire 리소스 | Foundry account + project + 10K TPM `gpt-5-mini` deployment; 게시·배포 시 agent user-assigned identity |
+| 에이전트 | Microsoft Agent Framework + `github-copilot-sdk` 구조화 응답 어댑터 |
+| 인증 | 로컬: Copilot SDK 개인 로그인; Azure: 명시적 fine-grained PAT |
+| 모델 선택 | 기본 `auto`; `COPILOT_MODEL` 또는 Aspire `copilot-model` 파라미터 |
 | 데이터 도구 | `MCPStreamableHTTPTool` (`getSchoolInfo`, `getMealServiceDietInfo`만 허용) |
 | endpoint | `POST /agent` (SSE), `GET /health` |
+
+로컬 인증은 Copilot SDK의 로그인된 사용자 경로를 사용하므로 별도 PAT가 필요하지
+않다. Azure의 `az login`은 Aspire가 Azure 리소스를 프로비저닝하는 데에만 사용되며,
+Agent 추론 인증은 대체하지 않는다. 배포 Agent는 `COPILOT_AUTH_MODE=pat`와
+사용자가 준비한 `COPILOT_GITHUB_TOKEN`만 사용한다. PAT는 GitHub fine-grained
+personal access token의 `Copilot Requests` 권한을 가져야 한다.
+
+모델 설정 우선순위는 명시적 Aspire `copilot-model` 파라미터, 프로세스 환경 변수,
+루트 `.env`, 기본값 `auto` 순이다. 추론 옵션을 별도로 설정하지 않는다.
 
 `src/agent/instructions/*.md`는 Nutrition, Health, Menu Quality, Judge 지침을
 코드 밖에서 관리한다. 모든 점수 정의와 가중치의 사람이 읽는 단일 원본은 루트
@@ -352,8 +362,8 @@ NEIS API를 프론트엔드에서 직접 호출하지 않고 백엔드 프록시
 - Judge는 비채점 품질 게이트로 제한해 설명 품질이 급식 자체 점수를 바꾸지 않게 한다.
 - 세 전문 호출을 병렬화해 순차 호출 대비 지연 시간을 줄이는 대신 모델 호출 비용은
   한 분석당 네 번 발생한다.
-- Aspire의 `gpt-5-mini` deployment는 세 전문 호출과 Judge 호출을 수용하도록
-  10K TPM 용량으로 명시한다.
+- GitHub Copilot의 사용량, 이용 가능 모델 및 계정 정책은 해당 로그인/PAT에
+  적용되는 GitHub 정책을 따른다.
 
 ---
 
@@ -366,10 +376,9 @@ NEIS API를 프론트엔드에서 직접 호출하지 않고 백엔드 프록시
 | `CORS_ORIGINS` | API | 로컬 Vite origin 두 개 |
 | `API_URL`, `AGENT_URL` | Vite | 각각 `http://localhost:8000`, `http://localhost:8002` |
 | `API_UPSTREAM`, `AGENT_UPSTREAM` | nginx | Aspire가 internal endpoint 주입 |
-| `FOUNDRY_PROJECT_ENDPOINT` | Agent | 네이티브 실행에서 필수 |
-| `FOUNDRY_PROJECT_URI` | Agent | Aspire Foundry project reference가 주입 |
-| `FOUNDRY_MODEL_DEPLOYMENT_NAME`, `FOUNDRY_MODEL_DEPLOYMENT` | Agent | 네이티브 deployment name과 호환 별칭 |
-| `FOUNDRY_MODEL_MODELNAME` | Agent | Aspire model reference가 주입 |
+| `COPILOT_AUTH_MODE` | Agent | 기본 `local`; Azure 배포는 AppHost가 `pat`로 설정 |
+| `COPILOT_MODEL` | Agent, Aspire | 기본 `auto`; AppHost parameter가 우선 |
+| `COPILOT_GITHUB_TOKEN` | Agent | Azure 배포 전용 fine-grained PAT; 로컬 로그인에는 불필요 |
 | `MCP_URL` | Agent | 기본 `http://127.0.0.1:8001/mcp`; base URL이면 `/mcp` 보완 |
 
 실데이터에는 발급된 NEIS 키를 사용한다. `sample` 키는 호출량과 조회 범위가
@@ -410,7 +419,10 @@ Aspire 연결 방법은 `src/mcp/README.md`에 정리한다.
 
 ### 9.4 Agent 서비스
 
-MCP 서버를 먼저 실행한 뒤:
+MCP 서버를 먼저 실행하고 개발자 개인 Copilot 계정에 로그인한 뒤 실행한다.
+별도 프로세스로 실행할 때 모델은 `COPILOT_MODEL`로 선택할 수 있으며 기본값은
+`auto`다. Azure 리소스 권한이 필요한 Aspire 배포와 달리 로컬 Copilot 로그인은
+Agent 추론 자격 증명으로 사용된다.
 
 ```bash
 az login
@@ -419,7 +431,16 @@ uv sync --all-groups
 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8002
 ```
 
+여기서 `az login`은 Azure CLI 기반 리소스 작업에만 필요하며 Copilot 로그인을
+대신하지 않는다. 루트 `.env`에서 `COPILOT_AUTH_MODE=local`(기본값)과
+`COPILOT_MODEL=auto`를 지정할 수 있다. Azure 배포 시 PAT를 로컬 `.env`에
+기록하지 말고 Actions secret으로 전달한다.
+
 Vite는 `AGENT_URL`이 없으면 `/agent`를 `http://localhost:8002`로 프록시한다.
+
+Copilot SDK runtime은 Agent 이미지 빌드 단계에서 내려받아 이미지에 포함하도록
+구성한다. 최종 Linux 이미지 빌드와 UID 10001 non-root 사용자로 SDK runtime
+시작·종료를 확인했다. 이는 실제 Copilot 추론이나 Azure 배포 검증을 의미하지 않는다.
 
 ---
 
@@ -449,7 +470,7 @@ Vite는 `AGENT_URL`이 없으면 `/agent`를 `http://localhost:8002`로 프록�
 20. `mcp-docs` — 실행·연결·보안 정책 문서화
 21. `web-analysis-tabs` — sticky 조회·분석 탭과 `/analysis` 라우트
 22. `web-analysis-chat` — 로컬 메시지 채팅 UI와 Enter/수정자+Enter 키보드 동작
-23. `agent-foundation` — Foundry/MCP 설정, 구조화 계약과 결정적 점수 계산
+23. `agent-foundation` — Copilot SDK 인증·MCP 설정, 구조화 결과 계약과 결정적 점수 계산
 24. `concurrent-workflow` — 세 전문 에이전트 병렬 실행과 Judge aggregator
 25. `agui-hosting` — typed shared state, AG-UI endpoint와 hardened 이미지
 26. `web-analysis-ui` — 학교·날짜 선택, 진행 상태, 가중 결과와 Judge 보고서

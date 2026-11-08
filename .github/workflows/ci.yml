@@ -145,6 +145,14 @@ jobs:
           curl -sSL https://aspire.dev/install.sh | bash
           echo "$HOME/.aspire/bin" >> "$GITHUB_PATH"
       - run: npm run build
+      - name: Validate Copilot deployment token
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+        run: |
+          if [[ -z "$COPILOT_GITHUB_TOKEN" ]]; then
+            echo "::error::The COPILOT_GITHUB_TOKEN Actions secret is required for Azure deployment."
+            exit 1
+          fi
       - name: Sign in to Azure
         uses: azure/login@v3
         with:
@@ -158,3 +166,5 @@ jobs:
           Azure__Location: ${{ vars.AZURE_LOCATION || 'koreacentral' }}
           Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
           Parameters__neis_api_key: ${{ secrets.NEIS_API_KEY }}
+          Parameters__copilot_github_token: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          Parameters__copilot_model: ${{ vars.COPILOT_MODEL || 'auto' }}

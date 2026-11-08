@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -37,22 +37,6 @@ async function runAppHost({
       getOutput(output) {
         return { resource: name, output };
       },
-      addProject(projectName) {
-        return addResource('foundry-project', projectName);
-      },
-      addModelDeployment(modelName, model) {
-        return addResource('foundry-model', modelName, [model]);
-      },
-      withProperties(callback) {
-        pending.push(callback({
-          skuCapacity: {
-            async set(value) {
-              calls.push({ resource: name, method: 'skuCapacity', args: [value] });
-            },
-          },
-        }));
-        return resource;
-      },
       publishAsDockerFile(callback) {
         calls.push({ resource: name, method: 'publishAsDockerFile', args: [] });
         pending.push(callback(resource));
@@ -72,14 +56,12 @@ async function runAppHost({
     };
 
     for (const method of [
-      'withFoundryRoleAssignments',
       'withParameter',
       'withUv',
       'withDockerfile',
       'withEnvironment',
       'withHttpHealthCheck',
       'withComputeEnvironment',
-      'withAzureUserAssignedIdentity',
       'withReference',
       'waitFor',
       'withExternalHttpEndpoints',
@@ -103,7 +85,14 @@ async function runAppHost({
           return {
             value: {
               async get() {
-                return configurationValues.has(key) ? configurationValues.get(key) : null;
+                if (configurationValues.has(key)) {
+                  return configurationValues.get(key);
+                }
+                if (key.startsWith('Parameters:')) {
+                  const parameterName = key.slice('Parameters:'.length).replaceAll('-', '_');
+                  return processEnvironment[`Parameters__${parameterName}`] ?? null;
+                }
+                return null;
               },
               async set(value) {
                 calls.push({ method: 'setConfiguration', args: [key, value] });
@@ -126,15 +115,6 @@ async function runAppHost({
     },
     addAzureContainerAppEnvironment(name) {
       return addResource('container-app-environment', name);
-    },
-    addFoundry(name) {
-      return addResource('foundry', name);
-    },
-    addAzureUserAssignedIdentity(name) {
-      return addResource('identity', name);
-    },
-    addBicepTemplate(name, path) {
-      return addResource('bicep', name, [path]);
     },
     addParameter(name, options) {
       return addResource('parameter', name, [options]);
@@ -180,7 +160,6 @@ async function runAppHost({
     },
     'node:url': { fileURLToPath },
     './.aspire/modules/aspire.mjs': {
-      FoundryModels: { OpenAI: { Gpt5Mini: 'gpt-5-mini' } },
       async createBuilder() {
         return builder;
       },
@@ -224,6 +203,7 @@ test('loads .env from the AppHost directory and passes Azure settings to the hos
   const result = await runAppHost({
     dotenv: {
       NEIS_API_KEY: 'test-neis-secret',
+      COPILOT_MODEL: 'dotenv-model',
       Azure__SubscriptionId: 'test-subscription',
       Azure__Location: 'test-region',
       Azure__TenantId: 'test-tenant',
@@ -246,13 +226,23 @@ test('loads .env from the AppHost directory and passes Azure settings to the hos
   ));
   assert.equal(parameter.args[1].value, 'test-neis-secret');
   assert.equal(parameter.args[1].secret, true);
+  const modelParameter = result.calls.find(({ resource, method }) => (
+    resource === 'copilot-model' && method === 'add'
+  ));
+  assert.equal(modelParameter.args[1].value, 'dotenv-model');
+  assert.equal(modelParameter.args[1].secret, undefined);
   assert.equal(JSON.stringify(result.consoleOutput).includes('test-neis-secret'), false);
 });
 
-test('preserves host settings and shell environment values over .env', async () => {
+test('explicit Aspire model parameter takes precedence over process and .env settings', async () => {
   const result = await runAppHost({
-    env: { Azure__Location: 'shell-region', Azure__TenantId: 'shell-tenant' },
+    env: {
+      COPILOT_MODEL: 'shell-model',
+      Azure__Location: 'shell-region',
+      Azure__TenantId: 'shell-tenant',
+    },
     dotenv: {
+      COPILOT_MODEL: 'dotenv-model',
       Azure__Location: 'dotenv-region',
       Azure__TenantId: 'dotenv-tenant',
       Azure__SubscriptionId: 'dotenv-subscription',
@@ -261,18 +251,44 @@ test('preserves host settings and shell environment values over .env', async () 
     hostConfiguration: {
       'Azure:SubscriptionId': 'host-subscription',
       'Azure:ResourceGroup': '',
+      'Parameters:copilot-model': 'parameter-model',
     },
-  });
+    });
 
   assert.deepEqual(Object.fromEntries(result.configurationValues), {
     'Azure:SubscriptionId': 'host-subscription',
     'Azure:ResourceGroup': '',
     'Azure:Location': 'shell-region',
     'Azure:TenantId': 'shell-tenant',
+    'Parameters:copilot-model': 'parameter-model',
   });
+  assert.equal(
+    result.calls.find(({ resource, method }) => resource === 'copilot-model' && method === 'add')
+      .args[1].value,
+    'parameter-model',
+  );
   assert.deepEqual(
     result.calls.filter(({ method }) => method === 'setConfiguration').map(({ args }) => args[0]),
     ['Azure:Location', 'Azure:TenantId'],
+  );
+});
+
+test('process model environment overrides .env and defaults to auto when absent', async () => {
+  const fromProcess = await runAppHost({
+    env: { COPILOT_MODEL: 'shell-model' },
+    dotenv: { COPILOT_MODEL: 'dotenv-model' },
+  });
+  assert.equal(
+    fromProcess.calls.find(({ resource, method }) => resource === 'copilot-model' && method === 'add')
+      .args[1].value,
+    'shell-model',
+  );
+
+  const fromDefault = await runAppHost({ envFileExists: false });
+  assert.equal(
+    fromDefault.calls.find(({ resource, method }) => resource === 'copilot-model' && method === 'add')
+      .args[1].value,
+    'auto',
   );
 });
 
@@ -293,60 +309,55 @@ test('leaves absent or empty Azure values unset when .env is missing', async () 
 test('run mode retains the service graph without deployment-only identity resources', async () => {
   const result = await runAppHost();
 
-  for (const name of ['aca', 'foundry', 'foundry-project', 'foundry-model', 'api', 'mcp', 'agent', 'web']) {
+  for (const name of ['aca', 'api', 'mcp', 'agent', 'web', 'copilot-model']) {
     assert.ok(result.resources.has(name), `${name} is missing`);
   }
-  assert.equal(result.resources.has('agent-identity'), false);
-  assert.equal(result.resources.has('agent-foundry-user-role'), false);
-  assert.equal(result.calls.some(({ resource, method }) => (
-    resource === 'agent' && method === 'withAzureUserAssignedIdentity'
-  )), false);
+  assert.equal(result.resources.has('copilot-github-token'), false);
 
   const dependencies = (resource, method) => result.calls
     .filter((call) => call.resource === resource && call.method === method)
     .map(({ args }) => args[0].name);
-  assert.deepEqual(dependencies('agent', 'waitFor'), ['foundry-project', 'foundry-model', 'mcp']);
-  assert.deepEqual(dependencies('agent', 'withReference'), ['foundry-project', 'foundry-model', 'mcp']);
+  assert.deepEqual(dependencies('agent', 'waitFor'), ['mcp']);
+  assert.deepEqual(dependencies('agent', 'withReference'), ['mcp']);
   assert.deepEqual(dependencies('web', 'waitFor'), ['api', 'agent']);
   assert.deepEqual(dependencies('web', 'withReference'), ['api', 'agent']);
   assert.ok(result.calls.some(({ resource, method, args }) => (
-    resource === 'foundry-model' && method === 'skuCapacity' && args[0] === 10
+    resource === 'agent' && method === 'withEnvironment'
+    && args[0] === 'COPILOT_AUTH_MODE' && args[1] === 'local'
   )));
+  assert.equal(result.calls.some(({ resource, method, args }) => (
+    resource === 'agent' && method === 'withEnvironment' && args[0] === 'COPILOT_GITHUB_TOKEN'
+  )), false);
 });
 
-test('publish mode connects the actual identity outputs to the project-scoped role', async () => {
+test('publish mode adds a secret parameter only for the agent and selects PAT auth', async () => {
   const result = await runAppHost({ publish: true });
 
-  const identity = result.resources.get('agent-identity');
-  const role = result.resources.get('agent-foundry-user-role');
-  assert.ok(identity);
-  assert.ok(role);
-
-  const parameters = Object.fromEntries(result.calls
-    .filter(({ resource, method }) => resource === 'agent-foundry-user-role' && method === 'withParameter')
-    .map(({ args }) => [args[0], args[1].value]));
-  assert.deepEqual(parameters, {
-    identityName: { resource: 'agent-identity', output: 'name' },
-    identityPrincipalId: { resource: 'agent-identity', output: 'principalId' },
-    foundryAccountName: { resource: 'foundry', output: 'name' },
-    foundryProjectName: { resource: 'foundry-project', output: 'name' },
-  });
+  const tokenParameter = result.calls.find(({ resource, method }) => (
+    resource === 'copilot-github-token' && method === 'add'
+  ));
+  assert.equal(tokenParameter.args[1].secret, true);
+  assert.equal('value' in tokenParameter.args[1], false);
   assert.ok(result.calls.some(({ resource, method, args }) => (
-    resource === 'agent' && method === 'withAzureUserAssignedIdentity' && args[0] === identity
+    resource === 'agent' && method === 'withEnvironment'
+    && args[0] === 'COPILOT_AUTH_MODE' && args[1] === 'pat'
   )));
   assert.ok(result.calls.some(({ resource, method, args }) => (
-    resource === 'agent' && method === 'waitFor' && args[0] === role
+    resource === 'agent' && method === 'withEnvironment'
+    && args[0] === 'COPILOT_GITHUB_TOKEN'
+    && args[1] === result.resources.get('copilot-github-token')
   )));
+  assert.equal(result.calls.some(({ resource, method, args }) => (
+    ['api', 'mcp', 'web'].includes(resource)
+    && method === 'withEnvironment' && args[0] === 'COPILOT_GITHUB_TOKEN'
+  )), false);
 });
 
-test('project role keeps its previous name-based GUID and uses the supplied principal', async () => {
-  const bicep = await readFile(new URL('../infra/agent-foundry-user-role.bicep', import.meta.url), 'utf8');
-
-  assert.match(bicep, /param identityName string/);
-  assert.match(bicep, /param identityPrincipalId string/);
-  assert.match(bicep, /53ca6127-db72-4b80-b1b0-d745d6d5456d/);
-  assert.match(bicep, /name: guid\(foundryProject\.id, identityName, foundryUserRoleDefinitionId\)/);
-  assert.match(bicep, /scope: foundryProject/);
-  assert.match(bicep, /principalId: identityPrincipalId/);
-  assert.doesNotMatch(bicep, /resource agentIdentity /);
+test('Foundry package and legacy role template are removed', async () => {
+  const config = await readFile(new URL('../aspire.config.json', import.meta.url), 'utf8');
+  assert.doesNotMatch(config, /Aspire\.Hosting\.Foundry/);
+  await assert.rejects(
+    access(new URL('../infra/agent-foundry-user-role.bicep', import.meta.url)),
+    { code: 'ENOENT' },
+  );
 });

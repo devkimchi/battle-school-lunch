@@ -7,7 +7,7 @@
 ## 1. 프로젝트 개요
 
 NEIS 오픈 API(학교기본정보 / 급식식단정보) 위에 구축한 풀스택 급식 조회 앱,
-OpenAPI 기반 MCP 서버와 Microsoft Agent Framework 비교 분석 서비스 프로젝트.
+OpenAPI 기반 MCP 서버와 Copilot SDK 기반 Microsoft Agent Framework 분석 서비스 프로젝트.
 
 - 급식은 항상 **중식(lunch, `MMEAL_SC_CODE=2`)** 으로 필터링합니다.
 - 프런트엔드 ↔ 백엔드는 `/api/*` 경로로 통신합니다.
@@ -83,7 +83,7 @@ OpenAPI 기반 MCP 서버와 Microsoft Agent Framework 비교 분석 서비스 �
 | Node.js | 20.19+ 또는 22.13+ (24 LTS 권장) | AppHost, `src/web`, `src/e2e` |
 | npm | 10+ | `src/web`, `src/e2e` |
 | Aspire CLI | 13.6.4+ | 로컬 풀스택 오케스트레이션 |
-| Azure CLI | latest | Aspire Azure Container Apps 배포 |
+| Azure CLI | latest | Aspire Azure Container Apps 배포 설정 |
 | Docker | 24+ | Aspire 이미지 빌드 |
 | NEIS API 키 | — | `src/api`, `src/mcp` 런타임 (실데이터 호출용) |
 
@@ -136,10 +136,11 @@ uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8002
 uv run pytest
 ```
 
-실행 전 `az login`, `FOUNDRY_PROJECT_ENDPOINT`,
-`FOUNDRY_MODEL_DEPLOYMENT_NAME`, 실행 중인 MCP 서버가 필요합니다. Aspire 실행에서는
-Foundry resource reference가 각각 `FOUNDRY_PROJECT_URI`,
-`FOUNDRY_MODEL_MODELNAME`을 주입합니다.
+로컬 실행에서는 개발자의 개인 Copilot 로그인이 필요하고, 실행 중인 MCP 서버가
+필요합니다. Azure 배포를 위한 `az login`은 Azure 리소스 프로비저닝용이며 Copilot
+추론 인증을 대신하지 않습니다. 배포된 Agent는 별도로 주입된
+`COPILOT_GITHUB_TOKEN` fine-grained PAT를 사용합니다. 모델은 기본 `auto`이며
+`COPILOT_MODEL` 또는 Aspire `copilot-model` 파라미터로 선택할 수 있습니다.
 
 ### E2E (`src/e2e/`)
 
@@ -183,9 +184,10 @@ aspire destroy --environment production
   마세요. `web`은 `api`를 참조하고 준비 상태를 기다리며, API URL은
   `withEnvironment("API_URL", api.getEndpoint("http"))`로 주입합니다.
   `NEIS_API_KEY`는 secret parameter로 모델링해 `api`와 `mcp` 환경 변수로 전달합니다.
-  AppHost가 모델링한 Foundry project와 `gpt-5-mini` deployment(10K TPM)를 유지합니다.
-  로컬에서는 개발자 자격 증명을 사용하고 배포용 관리 ID를 등록하지 않습니다.
-  게시·배포에서는 agent 전용 user-assigned identity와 Foundry 역할 할당을 유지합니다.
+  로컬 Agent는 Copilot SDK의 개인 로그인 경로를 사용하고, 게시·배포 Agent에는
+  `COPILOT_AUTH_MODE=pat`와 Actions secret에서 주입한 PAT만 전달합니다. 모델은
+  기본 `auto`이며 Aspire `copilot-model` 파라미터가 프로세스 환경 변수,
+  저장소 루트 `.env`, 기본값보다 우선합니다.
   Azure 배포에서는 `aca`
   Container Apps environment와 기존 nginx Dockerfile을 사용하는
   `publishAsDockerFile(...)` 생산 모델을 유지합니다. nginx의 target port는 8080이고
@@ -200,7 +202,7 @@ aspire destroy --environment production
   45/30/25 환산과 총점은 코드가 계산합니다. Judge는 점수를 변경하지 않습니다.
   AppHost가 실행될 때 rubric을 gitignored `src/agent/.generated/`에 복사하므로 이
   생성물은 직접 편집하거나 커밋하지 마세요.
-  MCP와 Foundry는 반드시 경계에서 모킹하고 자격 증명을 web으로 전달하지 마세요.
+  MCP와 Copilot SDK는 반드시 경계에서 모킹하고 자격 증명을 web으로 전달하지 마세요.
 - **급식 조회 제약**: 날짜 범위는 **최대 31일**.
 
 ## 6. 테스트 원칙
@@ -211,10 +213,10 @@ aspire destroy --environment production
 | 단위/통합 (API) | `src/api/tests/` | pytest + respx | NEIS HTTP 경계 |
 | 단위/통합 (Web) | `src/web/src/**/*.test.*`, `src/web/src/test/integration/` | Vitest + RTL + MSW | `/api/*` |
 | 단위/통합 (MCP) | `src/mcp/tests/` | pytest + respx | NEIS HTTP 경계 |
-| 단위/통합 (Agent) | `src/agent/tests/` | pytest | MCP·Foundry 경계 |
+| 단위/통합 (Agent) | `src/agent/tests/` | pytest | MCP·Copilot SDK 경계 |
 | 엔드투엔드 | `src/e2e/tests/` | Playwright | `/api/*`, `/agent` (`page.route`) |
 
-- **어떤 테스트도 실제 NEIS나 Foundry 서비스에 접근하지 않습니다.** 항상 경계에서 모킹.
+- **어떤 테스트도 실제 NEIS나 Copilot 서비스에 접근하지 않습니다.** 항상 경계에서 모킹.
 - 백엔드 마커: `unit`(순수 함수, I/O 없음), `integration`(`TestClient` + respx).
   `--strict-markers`가 켜져 있으므로 새 마커는 `pyproject.toml`에 먼저 등록.
 - 프런트엔드: 프레젠테이션 컴포넌트(`Button` 등)와 한 줄짜리 유틸(`cn`)에는

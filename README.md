@@ -1,9 +1,8 @@
 # 전국 초중고 급식 정보 조회 및 분석 앱
 
 NEIS 오픈 API를 기반으로 전국 초중고의 중식을 조회하고, Microsoft Agent
-Framework의 전문 에이전트들이 두 학교의 식단을 비교 분석하는 풀스택
-애플리케이션입니다. Aspire가 Web, API, MCP, Agent 서비스와 Microsoft Foundry
-리소스를 함께 오케스트레이션합니다.
+Framework의 전문 에이전트들이 Copilot SDK로 두 학교의 식단을 비교 분석하는
+풀스택 애플리케이션입니다. Aspire가 Web, API, MCP, Agent 서비스를 오케스트레이션합니다.
 
 ## 아키텍처
 
@@ -45,7 +44,8 @@ battle-school-lunch/
 | Node.js | 20.19+ 또는 22.13+ (24 LTS 권장) |
 | npm | 10+ |
 | [Aspire CLI](https://aspire.dev/get-started/install-cli/) | 13.6.4+ |
-| [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) | Foundry 인증과 Azure 배포 |
+| [Copilot CLI](https://docs.github.com/copilot) | 로컬 개인 Copilot 로그인 (분석 기능) |
+| [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) | Azure 리소스 프로비저닝과 배포 |
 | Docker | 24+; Azure 배포 이미지 빌드 |
 | NEIS API 키 | [교육정보 개방 포털](https://open.neis.go.kr/)에서 발급 |
 
@@ -53,9 +53,10 @@ battle-school-lunch/
 
 ### 1. 환경 변수 설정
 
-저장소 루트에 gitignored `.env`를 만들고 `NEIS_API_KEY`를 실제 값으로
-바꿉니다. Aspire는 Foundry project와 model deployment를 직접 프로비저닝하므로
-로컬 Aspire 실행에는 Foundry endpoint 변수가 필요하지 않습니다.
+저장소 루트에 gitignored `.env`를 만들고 `NEIS_API_KEY`를 실제 값으로 바꿉니다.
+로컬 분석은 Copilot CLI에 로그인된 개발자의 개인 Copilot 계정을 사용합니다.
+모델은 기본 `auto`이며 필요하면 `COPILOT_MODEL`로 지정할 수 있습니다. 로컬 실행은
+Azure Copilot PAT를 요구하지 않습니다.
 
 ```powershell
 # PowerShell
@@ -73,13 +74,13 @@ ${EDITOR:-vi} .env
 
 ```dotenv
 NEIS_API_KEY=발급받은_NEIS_API_키
-Azure__SubscriptionId=<azure_subscription_id>
-Azure__Location=<azure_location>
+COPILOT_MODEL=auto
 ```
 
 > [!NOTE]
-> `Azure__SubscriptionId` 값은 `az account show` 명령어를 통해 알 수 있습니다.
-> 필요하면 `Azure__TenantId`와 `Azure__ResourceGroup`도 설정하세요.
+> `Azure__SubscriptionId`, `Azure__Location`, `Azure__TenantId`,
+> `Azure__ResourceGroup`은 Azure 배포 시에만 필요합니다. `az login`은 Azure
+> 리소스 프로비저닝용이며 Copilot 추론 로그인을 대신하지 않습니다.
 
 AppHost는 현재 작업 디렉터리가 아닌 `apphost.mts` 위치를 기준으로 `.env`를
 읽습니다. 기존 셸 환경 변수와 Aspire 호스트 설정은 덮어쓰지 않으며, Aspire
@@ -92,17 +93,14 @@ AppHost는 현재 작업 디렉터리가 아닌 `apphost.mts` 위치를 기준�
 
 ```bash
 npm install
-az login
 npm run dev
 ```
 
-Aspire 대시보드에서 `api`, `mcp`, `agent`, `web`과 Foundry 리소스의 상태, 로그,
-트레이스, 실행 URL을 확인할 수 있습니다. Web의 endpoint를 열어 앱을 사용합니다.
-로컬에서도 Foundry account, project와 모델이 Azure에 프로비저닝되므로 Azure
-권한과 사용량에 따른 비용이 필요할 수 있습니다. Agent는 일반적으로 `az login`의
-개발자 자격 증명을 사용하며, 배포 전용 관리 ID와 프로젝트 역할은 로컬에서
-생성하지 않습니다. 다른 `DefaultAzureCredential` 자격 증명이 먼저 선택될 수도
-있습니다.
+Aspire 대시보드에서 `api`, `mcp`, `agent`, `web`의 상태, 로그, 트레이스, 실행
+URL을 확인합니다. 분석 기능을 사용하기 전에 Copilot CLI에서 개인 계정으로
+로그인되어 있는지 확인하세요. Agent는 로컬에서 Copilot SDK의 로그인 사용자 인증을
+사용하며 Azure 자격 증명이나 PAT를 사용하지 않습니다. 브라우저에는 인증 정보가
+전달되지 않습니다.
 
 종료하려면 실행 터미널에서 `Ctrl+C`를 누르거나 다른 터미널에서 다음을 실행합니다.
 
@@ -112,8 +110,9 @@ aspire stop
 
 ## Azure로 배포
 
-`apphost.mts`가 Azure Container Apps와 Foundry 배포 토폴로지의 단일 원본입니다.
-먼저 Azure에 로그인하고 배포 대상 값을 현재 셸에 설정합니다.
+`apphost.mts`가 Azure Container Apps 배포 토폴로지의 단일 원본입니다. 먼저 Azure에
+로그인하고 배포 대상 값을 현재 셸에 설정합니다. Azure CLI 로그인은 Azure 리소스
+작업에 쓰이고 Copilot 인증에는 별도 PAT가 필요합니다.
 
 ```powershell
 # PowerShell
@@ -149,9 +148,16 @@ aspire deploy --environment production --non-interactive
 
 배포 전에 실행 단계를 검토하려면
 `aspire deploy --list-steps --non-interactive`를 사용합니다. CI에서는
-`Parameters__neis_api_key`를 저장소 secret으로 주입하며, 로컬 배포는 앞서 만든
-`.env`의 `NEIS_API_KEY`를 사용합니다. Azure 배포에서는 Agent 전용
-user-assigned identity에 Foundry account와 project 역할을 할당합니다.
+`Parameters__neis_api_key`와 `Parameters__copilot_github_token`을 각각 저장소
+Actions secret으로 주입합니다. 배포용 `COPILOT_GITHUB_TOKEN`은 사용자가 준비한
+fine-grained PAT여야 하며 `Copilot Requests` 권한이 필요합니다. 이 토큰을
+`.env`, 명령 인자 또는 로그에 기록하지 마세요. 필요하면 `COPILOT_MODEL` 또는
+Aspire `copilot-model` 파라미터로 모델을 선택합니다. 설정 우선순위는 명시적
+Aspire 파라미터 > 프로세스 환경 변수 > 루트 `.env` > 기본값(`auto`)입니다.
+
+PAT 교체 시 GitHub Actions repository secret `COPILOT_GITHUB_TOKEN`을 갱신하고
+Aspire 배포를 다시 실행해 Agent Container App revision에 새 값이 반영되었는지
+확인합니다. 실제 배포는 대상 환경을 확인한 뒤 진행합니다.
 
 배포 리소스를 제거하려면 다음을 실행합니다.
 
@@ -165,7 +171,7 @@ GitHub Actions OIDC와 배포 변수 구성은
 ## 테스트
 
 아래 스크립트는 잠긴 의존성을 설치하고 AppHost, API, MCP, Agent, Web, E2E 검증을
-순서대로 모두 실행합니다. 실제 NEIS나 Foundry에는 연결하지 않습니다.
+순서대로 모두 실행합니다. 실제 NEIS나 Copilot 모델에는 연결하지 않습니다.
 AppHost만 검사할 때는 루트에서 `npm run build` 후 `npm test`를 실행합니다.
 AppHost 테스트는 가짜 설정으로 게시 산출물도 확인하지만 Azure에 배포하지 않습니다.
 
@@ -185,10 +191,11 @@ AppHost 테스트는 가짜 설정으로 게시 산출물도 확인하지만 Azu
   정확한지 확인합니다.
 - **Azure 구독 또는 지역 설정 누락** — 루트 `.env`의 `Azure__SubscriptionId`와
   `Azure__Location`, 셸 환경 변수 및 Aspire에 저장된 Azure 설정을 확인합니다.
-- **Foundry 인증 실패** — `az login` 후 현재 계정이 대상 subscription과 Foundry
-  리소스를 사용할 권한이 있는지 확인하고, 다른 자격 증명이 먼저 선택되지 않았는지
-  확인합니다. Agent의 `/health` 성공은 Foundry 인증이나 모델 추론의 성공을 보장하지
-  않습니다.
+- **Copilot 인증 실패** — 로컬에서는 Copilot CLI가 개인 계정으로 로그인되어 있는지
+  확인합니다. Azure에서는 `az login`만으로 Copilot 추론 인증이 되지 않으므로,
+  `COPILOT_GITHUB_TOKEN` Actions secret의 PAT 권한과 만료 상태를 확인하고 교체 후
+  Agent를 재배포합니다. Agent의 `/health` 성공은 Copilot 인증이나 모델 추론의
+  성공을 보장하지 않습니다.
 - **Docker를 찾을 수 없음** — Azure 배포 전 Docker Desktop 또는 Docker daemon이
   실행 중인지 확인합니다.
 - **E2E에서 Chromium을 실행할 수 없음** — `cd src/e2e` 후

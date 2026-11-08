@@ -9,6 +9,7 @@ export type AnalysisPhase =
   | "error";
 
 export type EvaluationArea = "nutrition" | "health" | "menu_quality";
+export type EvaluationStatus = "pending" | "running" | "completed" | "failed";
 
 export interface SchoolCandidate {
   schoolCode: string;
@@ -89,6 +90,7 @@ export interface AnalysisState {
   candidates: SchoolCandidate[];
   selectedSchoolCodes: string[];
   selectedDate: string | null;
+  evaluationProgress?: Partial<Record<EvaluationArea, EvaluationStatus>>;
   result: AnalysisResult | null;
   error: AgentError | null;
 }
@@ -99,6 +101,7 @@ export const INITIAL_ANALYSIS_STATE: AnalysisState = {
   candidates: [],
   selectedSchoolCodes: [],
   selectedDate: null,
+  evaluationProgress: {},
   result: null,
   error: null,
 };

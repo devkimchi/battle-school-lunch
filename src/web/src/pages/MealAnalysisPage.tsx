@@ -1,6 +1,8 @@
 import {
   AlertCircle,
   CalendarDays,
+  CheckCircle2,
+  Circle,
   LoaderCircle,
   RefreshCw,
   Send,
@@ -37,6 +39,7 @@ import {
   type AnalysisResult,
   type AnalysisState,
   type EvaluationArea,
+  type EvaluationStatus,
   type SchoolCandidate,
   type SchoolScore,
   type SpecialistEvaluation,
@@ -54,6 +57,90 @@ const AREA_LABELS: Record<EvaluationArea, string> = {
   health: "건강성",
   menu_quality: "식재료 및 메뉴 품질",
 };
+
+const EVALUATION_AREAS: EvaluationArea[] = ["nutrition", "health", "menu_quality"];
+const EVALUATION_STATUS_LABELS: Record<EvaluationStatus | "stopped", string> = {
+  pending: "대기 중",
+  running: "분석 중",
+  completed: "완료",
+  failed: "실패",
+  stopped: "중단됨",
+};
+
+function EvaluationProgress({
+  state,
+  schools,
+  interrupted,
+}: {
+  state: AnalysisState;
+  schools: SchoolCandidate[];
+  interrupted: boolean;
+}) {
+  const completed = EVALUATION_AREAS.filter(
+    (area) => state.evaluationProgress?.[area] === "completed",
+  ).length;
+
+  return (
+    <div className="space-y-4 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold">학교별 분석 진행 상황</h3>
+        <span className="text-[var(--color-muted-foreground)]">
+          평가 영역 {completed} / 3 완료
+        </span>
+      </div>
+      <p className="text-[var(--color-muted-foreground)]">
+        각 전문 에이전트가 두 학교를 함께 평가하므로 같은 영역의 상태는 함께 바뀝니다.
+      </p>
+      <div className="grid gap-6 md:grid-cols-2">
+        {schools.map((school, index) => (
+          <section
+            key={school.schoolCode}
+            aria-labelledby={`analysis-progress-school-${index}`}
+            className="min-w-0"
+          >
+            <h4 id={`analysis-progress-school-${index}`} className="break-words font-semibold">
+              {school.schoolName}
+            </h4>
+            <p className="mt-1 break-words text-xs text-[var(--color-muted-foreground)]">
+              {school.eduOfficeName}
+            </p>
+            <ul className="mt-3 divide-y border-y">
+              {EVALUATION_AREAS.map((area) => {
+                const progress = state.evaluationProgress?.[area] ?? "pending";
+                const status = interrupted && (progress === "running" || progress === "pending")
+                  ? "stopped"
+                  : progress;
+                const Icon = status === "completed"
+                  ? CheckCircle2
+                  : status === "running"
+                    ? LoaderCircle
+                    : status === "failed" || status === "stopped"
+                      ? AlertCircle
+                      : Circle;
+                return (
+                  <li key={area} className="flex items-center justify-between gap-3 py-3">
+                    <span>{AREA_LABELS[area]}</span>
+                    <span className={`flex shrink-0 items-center gap-2 ${
+                      status === "completed" ? "text-emerald-700"
+                        : status === "failed" || status === "stopped" ? "text-red-700"
+                          : status === "running" ? "font-medium" : "text-[var(--color-muted-foreground)]"
+                    }`}>
+                      <Icon
+                        aria-hidden="true"
+                        className={`size-4 ${status === "running" ? "animate-spin motion-reduce:animate-none" : ""}`}
+                      />
+                      {EVALUATION_STATUS_LABELS[status]}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function comparisonPrompt(
   selectedSchools: SchoolCandidate[],
@@ -474,7 +561,7 @@ export default function MealAnalysisPage() {
     setActiveStep(nextCodes.length === 2 ? 2 : 1);
     setCalendarOpen(false);
     setSubmittedPrompt("");
-    setState((current) => ({ ...current, result: null, error: null }));
+    setState((current) => ({ ...current, result: null, error: null, evaluationProgress: {} }));
   };
 
   const updateDate = (value: string) => {
@@ -489,6 +576,7 @@ export default function MealAnalysisPage() {
       ...current,
       result: null,
       error: null,
+      evaluationProgress: {},
     }));
   };
 
@@ -504,10 +592,13 @@ export default function MealAnalysisPage() {
       action: "analyze",
       selectedSchoolCodes: selectedCodes,
       selectedDate,
+      phase: "loading_meals",
+      evaluationProgress: {},
       result: null,
       error: null,
     };
     setSubmittedPrompt(prompt);
+    setState(requestState);
     setTransportError("");
     setIsRunning(true);
     try {
@@ -748,9 +839,16 @@ export default function MealAnalysisPage() {
                 ) : null}
                 {isRunning && PHASE_LABELS[state.phase] ? (
                   <div role="status" className="flex items-center gap-3 text-sm">
-                    <LoaderCircle aria-hidden="true" className="size-5 animate-spin" />
+                    <LoaderCircle aria-hidden="true" className="size-5 shrink-0 animate-spin motion-reduce:animate-none" />
                     {PHASE_LABELS[state.phase]}
                   </div>
+                ) : null}
+                {submittedPrompt && selectedSchools.length === 2 && !state.result ? (
+                  <EvaluationProgress
+                    state={state}
+                    schools={selectedSchools}
+                    interrupted={Boolean(currentError) || !isRunning}
+                  />
                 ) : null}
                 {currentError && state.candidates.length > 0 ? (
                   <ErrorNotice message={currentError} />
