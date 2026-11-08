@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1350" viewBox="0 0 1800 1350" role="img" aria-labelledby="title description">
+  <title id="title">학교 급식 조회 및 멀티에이전트 분석 아키텍처</title>
+  <desc id="description">브라우저가 Web을 통해 API와 Agent에 요청합니다. API와 MCP는 NEIS를 조회하고, Agent는 MCP로 데이터를 준비한 뒤 세 전문 에이전트를 병렬 실행합니다. 애플리케이션이 점수를 계산하고 AI Judge가 결과를 종합하며, 전문 에이전트와 Judge는 Copilot SDK로 GitHub Copilot을 호출합니다. Azure에서는 Web만 외부에 공개됩니다.</desc>
+  <!-- Editable source for architecture.png; render the PNG again after changing the diagram. -->
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#222222"/>
+    </marker>
+    <style>
+      text { font-family: "Malgun Gothic", "Noto Sans KR", Arial, sans-serif; fill: #000000; }
+      .title { font-size: 38px; font-weight: 700; }
+      .subtitle { font-size: 23px; }
+      .section { font-size: 27px; font-weight: 700; }
+      .card-title { font-size: 29px; font-weight: 700; }
+      .card-text { font-size: 22px; }
+      .small { font-size: 22px; }
+      .flow-label { font-size: 22px; font-weight: 600; }
+      .resource { fill: none; stroke: #39619c; stroke-width: 3; }
+      .group { fill: none; stroke: #7152a3; stroke-width: 2; }
+      .browser { fill: #edf5ff; stroke: #2867a7; stroke-width: 2.5; }
+      .web { fill: #e6f3ff; stroke: #2867a7; stroke-width: 2.5; }
+      .data { fill: #e7f6ec; stroke: #268352; stroke-width: 2.5; }
+      .agent { fill: none; stroke: #7152a3; stroke-width: 3; }
+      .specialist { fill: #f0eafa; stroke: #7152a3; stroke-width: 2; }
+      .score { fill: #fff3da; stroke: #ad7418; stroke-width: 2; }
+      .external { fill: #f4f4f4; stroke: #666666; stroke-width: 2.5; }
+      .flow { fill: none; stroke: #222222; stroke-width: 3; stroke-linejoin: round; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1350" fill="#ffffff"/>
+  <text x="60" y="58" class="title">학교 급식 조회와 멀티에이전트 분석</text>
+  <text x="60" y="94" class="subtitle">로컬 Aspire 실행 및 Azure Container Apps 배포 구성</text>
+
+  <rect x="45" y="260" width="1270" height="1040" rx="18" class="resource"/>
+  <text x="575" y="291" class="section">Aspire AppHost 리소스</text>
+  <text x="575" y="321" class="small">Azure 배포: Web만 외부 공개, API · MCP · Agent는 내부</text>
+  <text x="1375" y="321" class="section">외부 서비스</text>
+
+  <path d="M 250 215 V 355" class="flow"/>
+  <path d="M 290 355 V 215" class="flow"/>
+  <path d="M 450 430 H 610" class="flow"/>
+  <path d="M 250 505 V 825" class="flow"/>
+  <path d="M 290 825 V 505" class="flow"/>
+  <path d="M 780 825 V 740" class="flow"/>
+  <path d="M 970 430 H 1375" class="flow"/>
+  <path d="M 970 655 H 1240 V 470 H 1375" class="flow"/>
+  <path d="M 350 1030 V 1090" class="flow"/>
+  <path d="M 400 1135 H 485" class="flow"/>
+  <path d="M 850 985 H 915" class="flow"/>
+  <path d="M 830 1135 H 915" class="flow"/>
+  <path d="M 1230 1050 H 1375" class="flow"/>
+
+  <rect x="90" y="125" width="360" height="90" rx="14" class="browser"/>
+  <text x="270" y="163" text-anchor="middle" class="card-title">사용자 브라우저</text>
+  <text x="270" y="193" text-anchor="middle" class="card-text">학교 검색 · 두 학교 분석</text>
+
+  <rect x="90" y="355" width="360" height="150" rx="14" class="web"/>
+  <text x="120" y="397" class="card-title">Web</text>
+  <text x="420" y="391" text-anchor="end" class="small">Azure: 외부</text>
+  <text x="120" y="438" class="card-text">React · Vite</text>
+  <text x="120" y="472" class="card-text">운영: nginx 같은 오리진 프록시</text>
+
+  <rect x="610" y="355" width="360" height="150" rx="14" class="data"/>
+  <text x="640" y="397" class="card-title">API</text>
+  <text x="940" y="391" text-anchor="end" class="small">Azure: 내부</text>
+  <text x="640" y="438" class="card-text">FastAPI · /api/*</text>
+  <text x="640" y="472" class="card-text">학교 검색 · 중식 조회</text>
+
+  <rect x="610" y="590" width="360" height="150" rx="14" class="data"/>
+  <text x="640" y="630" class="card-title">MCP</text>
+  <text x="940" y="624" text-anchor="end" class="small">Azure: 내부</text>
+  <text x="640" y="661" class="small">Streamable HTTP /mcp</text>
+  <text x="640" y="688" class="small">getSchoolInfo</text>
+  <text x="640" y="715" class="small">getMealServiceDietInfo</text>
+
+  <rect x="90" y="825" width="1170" height="415" rx="14" class="agent"/>
+  <text x="120" y="864" class="card-title">Agent 서비스</text>
+  <text x="1230" y="858" text-anchor="end" class="small">Azure: 내부</text>
+  <text x="120" y="895" class="card-text">FastAPI · AG-UI · Microsoft Agent Framework</text>
+
+  <rect x="110" y="915" width="740" height="115" rx="10" class="group"/>
+  <text x="125" y="940" class="small">전문 에이전트 병렬 평가</text>
+  <rect x="125" y="955" width="225" height="60" rx="8" class="specialist"/>
+  <text x="237.5" y="992" text-anchor="middle" class="card-text">Nutrition 45%</text>
+  <rect x="360" y="955" width="225" height="60" rx="8" class="specialist"/>
+  <text x="472.5" y="992" text-anchor="middle" class="card-text">Health 30%</text>
+  <rect x="595" y="955" width="240" height="60" rx="8" class="specialist"/>
+  <text x="715" y="992" text-anchor="middle" class="card-text">Menu Quality 25%</text>
+
+  <rect x="120" y="1090" width="280" height="90" rx="8" class="score"/>
+  <text x="260" y="1125" text-anchor="middle" class="card-text">코드 점수 계산</text>
+  <text x="260" y="1155" text-anchor="middle" class="small">(평점 / 5) × 가중치</text>
+
+  <rect x="485" y="1090" width="345" height="90" rx="8" class="specialist"/>
+  <text x="657.5" y="1125" text-anchor="middle" class="card-text">AI Judge</text>
+  <text x="657.5" y="1155" text-anchor="middle" class="small">근거 · 개선안 · 한계 종합</text>
+
+  <rect x="915" y="925" width="315" height="255" rx="10" class="specialist"/>
+  <text x="1072.5" y="981" text-anchor="middle" class="card-title">Copilot SDK</text>
+  <text x="1072.5" y="1024" text-anchor="middle" class="card-text">전문 Agent와 Judge의</text>
+  <text x="1072.5" y="1056" text-anchor="middle" class="card-text">모델 요청</text>
+  <text x="1072.5" y="1102" text-anchor="middle" class="small">기본 모델: auto</text>
+
+  <rect x="1375" y="355" width="350" height="155" rx="14" class="external"/>
+  <text x="1550" y="397" text-anchor="middle" class="card-title">NEIS Open API</text>
+  <text x="1550" y="438" text-anchor="middle" class="small">학교기본정보 · 급식식단정보</text>
+  <text x="1550" y="470" text-anchor="middle" class="small">중식 MMEAL_SC_CODE=2</text>
+
+  <rect x="1375" y="980" width="350" height="150" rx="14" class="external"/>
+  <text x="1550" y="1022" text-anchor="middle" class="card-title">GitHub Copilot</text>
+  <text x="1550" y="1062" text-anchor="middle" class="small">로컬: Copilot 로그인</text>
+  <text x="1550" y="1093" text-anchor="middle" class="small">Azure: Copilot Requests PAT</text>
+
+  <text x="530" y="410" text-anchor="middle" class="flow-label">/api/*</text>
+  <text x="315" y="655" class="flow-label">POST /agent</text>
+  <text x="315" y="683" class="flow-label">SSE 응답</text>
+  <text x="800" y="776" class="flow-label">MCP 도구 호출</text>
+  <text x="1015" y="410" class="flow-label">학교 · 중식 조회</text>
+  <text x="1000" y="635" class="flow-label">학교 · 중식 조회</text>
+  <text x="485" y="1210" class="small">AI Judge는 전문 에이전트의 점수를 변경하지 않습니다.</text>
+</svg>
