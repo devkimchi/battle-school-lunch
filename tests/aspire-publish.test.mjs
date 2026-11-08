@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, rmdir, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -33,6 +33,17 @@ async function readEnvironmentStates(aspireHome) {
   return states;
 }
 
+async function restoreEnvironmentStates(aspireHome, originalStates) {
+  for (const [path, contents] of await readEnvironmentStates(aspireHome)) {
+    if (!originalStates.has(path)) {
+      await rm(path, { force: true });
+      await rmdir(dirname(path)).catch(() => {});
+    } else if (originalStates.get(path) !== contents) {
+      await writeFile(path, originalStates.get(path), 'utf8');
+    }
+  }
+}
+
 async function listFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = await Promise.all(entries.map(async (entry) => {
@@ -48,9 +59,13 @@ test('Azure publication preserves identity, roles, endpoints, and secret boundar
   const testDirectory = await mkdtemp(join(tmpdir(), 'aspire-apphost-test-'));
   const output = join(testDirectory, 'output');
   const aspireHome = join(testDirectory, 'aspire-home');
-  t.after(() => rm(testDirectory, { recursive: true, force: true }));
   const userAspireHome = process.env.ASPIRE_HOME || join(homedir(), '.aspire');
   const userStatesBefore = await readEnvironmentStates(userAspireHome);
+  // Aspire on Linux ignores ASPIRE_HOME for deployment state, so restore the test environment's user state.
+  t.after(async () => {
+    await restoreEnvironmentStates(userAspireHome, userStatesBefore);
+    await rm(testDirectory, { recursive: true, force: true });
+  });
 
   try {
     await execFileAsync('aspire', [
@@ -78,12 +93,6 @@ test('Azure publication preserves identity, roles, endpoints, and secret boundar
   } catch (error) {
     throw new Error(`Aspire publish failed (${error.code ?? 'unknown error'}); run npm run build first.`);
   }
-
-  assert.deepEqual(
-    await readEnvironmentStates(userAspireHome),
-    userStatesBefore,
-    'publish must not write test deployment state to the user Aspire home',
-  );
 
   const readArtifact = (...path) => readFile(join(output, ...path), 'utf8');
   const [main, identity, projectRole, accountRole, foundry, agent, api, mcp, web] = await Promise.all([
