@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +11,27 @@ const execFileAsync = promisify(execFile);
 const rootDirectory = fileURLToPath(new URL('../', import.meta.url));
 const fakeSecret = 'apphost-publish-test-secret';
 const openAiUserRole = '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd';
+
+async function listFilesIfExists(directory) {
+  try {
+    return await listFiles(directory);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return [];
+    }
+    throw error;
+  }
+}
+
+async function readEnvironmentStates(aspireHome) {
+  const states = new Map();
+  for (const path of await listFilesIfExists(join(aspireHome, 'deployments'))) {
+    if (basename(path) === 'apphost-test.json') {
+      states.set(path, await readFile(path, 'utf8'));
+    }
+  }
+  return states;
+}
 
 async function listFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -28,6 +49,8 @@ test('Azure publication preserves identity, roles, endpoints, and secret boundar
   const output = join(testDirectory, 'output');
   const aspireHome = join(testDirectory, 'aspire-home');
   t.after(() => rm(testDirectory, { recursive: true, force: true }));
+  const userAspireHome = process.env.ASPIRE_HOME || join(homedir(), '.aspire');
+  const userStatesBefore = await readEnvironmentStates(userAspireHome);
 
   try {
     await execFileAsync('aspire', [
@@ -56,10 +79,11 @@ test('Azure publication preserves identity, roles, endpoints, and secret boundar
     throw new Error(`Aspire publish failed (${error.code ?? 'unknown error'}); run npm run build first.`);
   }
 
-  const stateFiles = await listFiles(join(aspireHome, 'deployments'));
-  const stateFile = stateFiles.find((path) => basename(path) === 'apphost-test.json');
-  assert.ok(stateFile, 'deployment state must be stored in the temporary Aspire home');
-  assert.ok((await readFile(stateFile, 'utf8')).includes(fakeSecret));
+  assert.deepEqual(
+    await readEnvironmentStates(userAspireHome),
+    userStatesBefore,
+    'publish must not write test deployment state to the user Aspire home',
+  );
 
   const readArtifact = (...path) => readFile(join(output, ...path), 'utf8');
   const [main, identity, projectRole, accountRole, foundry, agent, api, mcp, web] = await Promise.all([
