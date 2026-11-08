@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "@/App";
@@ -237,6 +237,7 @@ describe("Meal analysis", () => {
   it("streams progress and renders the weighted report after manual send", async () => {
     const user = userEvent.setup();
     const result = resultFixture();
+    let updateProgress: ((progress: AnalysisState["evaluationProgress"], phase?: AnalysisState["phase"]) => void) | undefined;
     let finishAnalysis: (() => void) | undefined;
     const waitUntilFinished = new Promise<void>((resolve) => {
       finishAnalysis = resolve;
@@ -247,7 +248,10 @@ describe("Meal analysis", () => {
         _prompt: string,
         onState: (next: AnalysisState) => void,
       ) => {
-        onState({ ...state, phase: "evaluating" });
+        updateProgress = (evaluationProgress, phase = "evaluating") => {
+          onState({ ...state, phase, evaluationProgress });
+        };
+        onState({ ...state, phase: "loading_meals", evaluationProgress: {} });
         await waitUntilFinished;
         onState({ ...state, phase: "completed", result });
       },
@@ -258,8 +262,28 @@ describe("Meal analysis", () => {
     await user.click(screen.getByRole("button", { name: "전송" }));
 
     expect(
-      await screen.findByText("세 전문 에이전트가 동시에 평가하고 있어요."),
+      await screen.findByRole("heading", { name: "학교별 분석 진행 상황" }),
     ).toBeInTheDocument();
+    expect(screen.getAllByText("대기 중")).toHaveLength(6);
+    act(() => updateProgress?.({
+      nutrition: "completed",
+      health: "running",
+      menu_quality: "running",
+    }));
+    expect(screen.getByText("평가 영역 1 / 3 완료")).toBeInTheDocument();
+    for (const name of ["1번학교", "2번학교"]) {
+      const school = screen.getByRole("region", { name });
+      expect(within(school).getByText("영양 균형")).toBeInTheDocument();
+      expect(within(school).getByText("완료")).toBeInTheDocument();
+      expect(within(school).getAllByText("분석 중")).toHaveLength(2);
+    }
+    act(() => updateProgress?.({
+      nutrition: "completed",
+      health: "completed",
+      menu_quality: "completed",
+    }, "judging"));
+    expect(screen.getByText("평가 영역 3 / 3 완료")).toBeInTheDocument();
+    expect(screen.getByText("AI Judge가 근거와 결과를 종합하고 있어요.")).toBeInTheDocument();
     finishAnalysis?.();
     expect(
       await screen.findByRole("heading", {
@@ -275,6 +299,57 @@ describe("Meal analysis", () => {
       screen.getByRole("button", { name: "분석 질문 열기" }),
     ).toBeInTheDocument();
     expect(agentMock.analyze).toHaveBeenCalledOnce();
+  });
+
+  it("preserves completed areas after a connection failure and resets progress on retry", async () => {
+    const user = userEvent.setup();
+    agentMock.analyze.mockImplementationOnce(
+      async (state: AnalysisState, _prompt: string, onState: (next: AnalysisState) => void) => {
+        onState({
+          ...state,
+          phase: "evaluating",
+          evaluationProgress: { nutrition: "completed", health: "running", menu_quality: "pending" },
+        });
+        throw new Error("Connection closed");
+      },
+    );
+    let finishRetry: (() => void) | undefined;
+    const retry = new Promise<void>((resolve) => { finishRetry = resolve; });
+    agentMock.analyze.mockImplementationOnce(async () => { await retry; });
+    renderWithProviders(<App />, { initialEntries: ["/analysis"] });
+    await chooseComparison(user);
+    await user.click(screen.getByRole("button", { name: "전송" }));
+
+    expect(await screen.findByText("분석 서버와 연결하지 못했습니다. 다시 시도해 주세요.")).toBeInTheDocument();
+    expect(screen.getAllByText("완료")).toHaveLength(2);
+    expect(screen.getAllByText("중단됨")).toHaveLength(4);
+    expect(screen.queryByText("분석 중")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "전송" }));
+    expect(screen.getAllByText("대기 중")).toHaveLength(6);
+    expect(screen.getByText("평가 영역 0 / 3 완료")).toBeInTheDocument();
+    await act(async () => { finishRetry?.(); });
+  });
+
+  it("shows an area failure without discarding completed evaluations", async () => {
+    const user = userEvent.setup();
+    agentMock.analyze.mockImplementation(
+      async (state: AnalysisState, _prompt: string, onState: (next: AnalysisState) => void) => {
+        onState({
+          ...state,
+          phase: "error",
+          evaluationProgress: { nutrition: "completed", health: "failed", menu_quality: "running" },
+          error: { code: "MODEL_UNAVAILABLE", message: "AI 모델이 분석을 완료하지 못했습니다.", retryable: true },
+        });
+      },
+    );
+    renderWithProviders(<App />, { initialEntries: ["/analysis"] });
+    await chooseComparison(user);
+    await user.click(screen.getByRole("button", { name: "전송" }));
+    expect(await screen.findByText("AI 모델이 분석을 완료하지 못했습니다.")).toBeInTheDocument();
+    expect(screen.getAllByText("완료")).toHaveLength(2);
+    expect(screen.getAllByText("실패")).toHaveLength(2);
+    expect(screen.getAllByText("중단됨")).toHaveLength(2);
   });
 
   it("stops before evaluation when either school has no lunch", async () => {

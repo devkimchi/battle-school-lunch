@@ -13,6 +13,12 @@ Python 서비스입니다. 브라우저에는 AG-UI `POST /agent` + SSE endpoint
 4. 코드는 `(평점 / 5) × 가중치`로 환산 점수와 100점 총점을 계산합니다.
 5. AI Judge는 점수를 바꾸지 않고 근거, 개선안과 데이터 한계를 종합합니다.
 
+AG-UI shared state의 `evaluationProgress`는 실제 executor 이벤트에 따라 영역별
+`pending` / `running` / `completed` / `failed` 상태를 전달합니다. 각 전문 에이전트는
+두 학교를 한 요청에서 함께 평가하므로 같은 영역의 진행 상태는 두 학교에 공통입니다.
+전문 평가가 모두 끝나면 `judging` 단계로 전환하며 실패 시 완료된 영역의 상태를
+유지합니다.
+
 평가 기준은 루트 [`EVALUATION-RUBRIC.md`](../../EVALUATION-RUBRIC.md), 역할별
 지침은 [`instructions/`](./instructions/)의 Markdown 파일에서 관리합니다.
 Aspire는 실행·배포 준비 시 rubric을 gitignored `.generated/`에 복사해 image build

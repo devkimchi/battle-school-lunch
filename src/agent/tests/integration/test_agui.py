@@ -89,7 +89,12 @@ class FakeCopilotSession:
                 self.client.active_specialists,
             )
 
-        await asyncio.sleep(0.01)
+        delay = {
+            EvaluationArea.NUTRITION: 0.01,
+            EvaluationArea.HEALTH: 0.03,
+            EvaluationArea.MENU_QUALITY: 0.05,
+        }
+        await asyncio.sleep(delay.get(area, 0.01))
         if is_judge:
             payload = {
                 "winner": self.client.judge_winner,
@@ -181,7 +186,10 @@ def test_candidate_request_streams_typed_state() -> None:
                 "messages": [
                     {"id": "message-1", "role": "user", "content": "학교 후보를 보여줘"}
                 ],
-                "state": {"action": "load_candidates"},
+                "state": {
+                    "action": "load_candidates",
+                    "evaluationProgress": {"nutrition": "completed"},
+                },
             },
         )
 
@@ -190,6 +198,7 @@ def test_candidate_request_streams_typed_state() -> None:
     snapshots = [event["snapshot"] for event in events if event["type"] == "STATE_SNAPSHOT"]
     assert snapshots[-1]["phase"] == "selecting"
     assert len(snapshots[-1]["candidates"]) == 10
+    assert snapshots[-1]["evaluationProgress"] == {}
     assert events[0]["type"] == "RUN_STARTED"
     assert events[-1]["type"] == "RUN_FINISHED"
     assert runtime.requests == []
@@ -310,6 +319,8 @@ def test_rate_limit_returns_user_visible_retryable_error(
     assert "Model request exceeded rate limit." in caplog.text
     assert len(runtime.requests) == len(EvaluationArea)
     assert len(runtime.disconnected) == len(EvaluationArea)
+    assert "completed" not in snapshots[-1]["evaluationProgress"].values()
+    assert "failed" in snapshots[-1]["evaluationProgress"].values()
 
 
 @pytest.mark.parametrize(
@@ -388,6 +399,9 @@ def test_analysis_streams_concurrent_steps_and_completed_state() -> None:
                     ],
                     "selectedSchoolCodes": ["1", "2"],
                     "selectedDate": date.today().isoformat(),
+                    "evaluationProgress": {
+                        area.value: "completed" for area in EvaluationArea
+                    },
                 },
             },
         )
@@ -409,7 +423,27 @@ def test_analysis_streams_concurrent_steps_and_completed_state() -> None:
     assert all('"calorie": "700 Kcal"' in request for request in specialist_requests)
     assert any(event["type"] == "STEP_STARTED" for event in events)
     phases = [snapshot["phase"] for snapshot in snapshots]
-    assert phases == ["loading_meals", "evaluating", "judging", "completed"]
+    assert list(dict.fromkeys(phases)) == [
+        "loading_meals", "evaluating", "judging", "completed",
+    ]
+    assert snapshots[0]["evaluationProgress"] == {
+        area.value: "pending" for area in EvaluationArea
+    }
+    evaluating = [snapshot for snapshot in snapshots if snapshot["phase"] == "evaluating"]
+    for area in EvaluationArea:
+        statuses = [snapshot["evaluationProgress"][area.value] for snapshot in evaluating]
+        assert list(dict.fromkeys(statuses)) == ["pending", "running", "completed"]
+    assert any(
+        snapshot["evaluationProgress"]["nutrition"] == "completed"
+        and snapshot["evaluationProgress"]["menu_quality"] == "running"
+        for snapshot in evaluating
+    )
+    assert all(
+        snapshot["evaluationProgress"] == {
+            area.value: "completed" for area in EvaluationArea
+        }
+        for snapshot in snapshots if snapshot["phase"] in {"judging", "completed"}
+    )
     assert snapshots[-1]["phase"] == "completed"
     assert snapshots[-1]["result"]["schoolAScore"]["total"] == 100
     assert snapshots[-1]["result"]["schoolBScore"]["total"] == 60

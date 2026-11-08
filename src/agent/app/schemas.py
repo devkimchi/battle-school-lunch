@@ -20,6 +20,9 @@ class EvaluationArea(StrEnum):
     MENU_QUALITY = "menu_quality"
 
 
+EvaluationStatus = Literal["pending", "running", "completed", "failed"]
+
+
 class SchoolCandidate(ApiModel):
     school_code: str
     edu_office_code: str
@@ -108,5 +111,6 @@ class AnalysisState(ApiModel):
     candidates: list[SchoolCandidate] = Field(default_factory=list)
     selected_school_codes: list[str] = Field(default_factory=list)
     selected_date: date | None = None
+    evaluation_progress: dict[EvaluationArea, EvaluationStatus] = Field(default_factory=dict)
     result: AnalysisResult | None = None
     error: AgentError | None = None

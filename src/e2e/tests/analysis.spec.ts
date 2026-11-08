@@ -186,3 +186,90 @@ test("analysis stops with guidance when lunch data is unavailable", async ({
   ).toBeVisible();
   await expect(page.getByText("분석 완료")).toHaveCount(0);
 });
+
+for (const width of [1280, 390]) {
+  test(`school area progress follows SSE updates at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await installAgentMock(page, completedState);
+    await page.addInitScript(() => {
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async (input, init) => {
+        const url = input instanceof Request ? input.url : String(input);
+        if (!url.endsWith("/agent") || typeof init?.body !== "string") {
+          return originalFetch(input, init);
+        }
+        const body = JSON.parse(init.body);
+        if (body.state.action !== "analyze") return originalFetch(input, init);
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(controller) {
+            const emit = (event: unknown) => {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+            };
+            emit({ type: "RUN_STARTED", threadId: body.threadId, runId: body.runId });
+            emit({
+              type: "STATE_SNAPSHOT",
+              snapshot: { ...body.state, phase: "loading_meals", evaluationProgress: {} },
+            });
+            const advance = (event: Event) => {
+              if (!(event instanceof CustomEvent)) return;
+              emit({ type: "STATE_SNAPSHOT", snapshot: { ...body.state, ...event.detail } });
+              if (event.detail.phase === "error") {
+                emit({ type: "RUN_FINISHED", threadId: body.threadId, runId: body.runId });
+                controller.close();
+                window.removeEventListener("test-analysis-progress", advance);
+              }
+            };
+            window.addEventListener("test-analysis-progress", advance);
+          },
+        });
+        return new Response(stream, { headers: { "Content-Type": "text/event-stream" } });
+      };
+    });
+    await page.goto("/analysis");
+    await selectComparison(page);
+    await page.getByRole("button", { name: "전송" }).click();
+    await expect(page.getByText("대기 중", { exact: true })).toHaveCount(6);
+
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent("test-analysis-progress", {
+      detail: {
+        phase: "evaluating",
+        evaluationProgress: { nutrition: "completed", health: "running", menu_quality: "running" },
+      },
+    })));
+    for (const name of ["한빛중학교", "새봄중학교"]) {
+      const school = page.getByRole("region", { name });
+      await expect(school.getByText("완료", { exact: true })).toHaveCount(1);
+      await expect(school.getByText("분석 중", { exact: true })).toHaveCount(2);
+    }
+    await expect(page.getByText("평가 영역 1 / 3 완료")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const firstSchool = await page.getByRole("region", { name: "한빛중학교" }).boundingBox();
+    const secondSchool = await page.getByRole("region", { name: "새봄중학교" }).boundingBox();
+    expect(firstSchool).not.toBeNull();
+    expect(secondSchool).not.toBeNull();
+    if (width < 768) expect(secondSchool!.y).toBeGreaterThan(firstSchool!.y);
+    else expect(secondSchool!.y).toBe(firstSchool!.y);
+    await page.getByRole("region", { name: "급식 분석 채팅" }).screenshot({
+      path: testInfo.outputPath(`analysis-progress-${width}.png`),
+    });
+
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent("test-analysis-progress", {
+      detail: {
+        phase: "judging",
+        evaluationProgress: { nutrition: "completed", health: "completed", menu_quality: "completed" },
+      },
+    })));
+    await expect(page.getByText("완료", { exact: true })).toHaveCount(6);
+    await expect(page.getByText("AI Judge가 근거와 결과를 종합하고 있어요.")).toBeVisible();
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent("test-analysis-progress", {
+      detail: {
+        phase: "error",
+        evaluationProgress: { nutrition: "completed", health: "completed", menu_quality: "completed" },
+        error: { code: "MODEL_UNAVAILABLE", message: "최종 보고서를 작성하지 못했습니다.", retryable: true },
+      },
+    })));
+    await expect(page.getByText("최종 보고서를 작성하지 못했습니다.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "전송" })).toBeEnabled();
+  });
+}
