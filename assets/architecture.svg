@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1134" height="1642" viewBox="0 0 1134 1642" role="img" aria-labelledby="title description">
+  <title id="title">학교 급식 조회 및 멀티에이전트 분석 아키텍처</title>
+  <desc id="description">기존 이미지의 배치와 아이콘을 유지한 아키텍처입니다. Web UI, API, MCP, Agent 서비스, 전문 에이전트와 AI Judge의 연결 및 Microsoft Copilot SDK를 나타냅니다.</desc>
+  <!-- The original raster artwork is preserved separately; the footer below is editable. -->
+  <image x="0" y="0" width="1134" height="1642" xlink:href="architecture-original.png"/>
+
+  <rect x="790" y="1555" width="335" height="75" fill="#ffffff"/>
+  <!-- Icon source: https://raw.githubusercontent.com/github/copilot-sdk/refs/heads/main/assets/copilot.png -->
+  <image x="744" y="1564" width="56" height="56" xlink:href="copilot.png"/>
+  <text x="1105" y="1603" fill="#000000" font-family="Arial, Helvetica, sans-serif" text-anchor="end" font-size="30">Microsoft Copilot SDK</text>
+</svg>
