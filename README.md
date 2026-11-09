@@ -6,7 +6,7 @@ Framework의 전문 에이전트들이 Copilot SDK로 두 학교의 식단을 �
 
 ## 아키텍처
 
-![Web이 API와 Agent에 요청하고, API와 MCP는 NEIS를 조회하며, Agent의 전문 에이전트와 Judge가 Copilot SDK로 모델을 호출하는 구조](./assets/architecture.png)
+![Web UI가 API 및 Agent와 연결되고, Agent가 MCP, 전문 에이전트, AI Judge와 Microsoft Copilot SDK를 사용하는 아키텍처](./assets/architecture.png)
 
 - Web은 `/api/*`로 급식 조회 API를 호출하고 `/agent`로 AG-UI SSE 분석 결과를
   받습니다.
